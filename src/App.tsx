@@ -919,7 +919,7 @@ export default function App() {
     } catch (err) {
       console.error(err);
       setIsLoggedIn(true);
-      setUserName(authName || "Sathya Rammalu");
+      setUserName(authName || authEmail.split("@")[0] || "User");
       setAuthMessage({ type: "success", text: "Registration successful! (Offline Fallback active)" });
     }
   };
@@ -954,7 +954,7 @@ export default function App() {
     } catch (err) {
       console.error(err);
       setIsLoggedIn(true);
-      setUserName("Sathya Rammalu");
+      setUserName(authEmail.split("@")[0] || "User");
       setAuthMessage({ type: "success", text: `Welcome back! authorized.` });
     }
   };
@@ -2330,7 +2330,7 @@ export default function App() {
                     </span>
                   </div>
 
-                  <p className="text-xs font-bold mb-4">Hello Sathya,</p>
+                  <p className="text-xs font-bold mb-4">Hello {userName ? userName.split(" ")[0] : "User"},</p>
                   
                   <p className="text-xs text-[#475569] leading-relaxed mb-6">
                     In strict accordance with the **FTC 2026 Negative Option Rule**, this automated alert protects you against ongoing subscription leakage, ghost charges, and merchant behavioral friction.
@@ -3792,7 +3792,7 @@ export default function App() {
                               <input
                                 type="text"
                                 required
-                                placeholder="Sathya Rammalu"
+                                placeholder=""
                                 value={authName}
                                 onChange={(e) => setAuthName(e.target.value)}
                                 className="w-full bg-slate-900 border border-slate-700 focus:border-emerald-400 p-2.5 rounded text-white text-xs font-mono outline-none"
