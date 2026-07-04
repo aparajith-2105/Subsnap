@@ -1,0 +1,96 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+:root {
+  --bg-app: #F9FAFB;
+  --bg-card: #ffffff;
+  --bg-hover: #f8fafc;
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --border-color: rgba(71, 85, 105, 0.2);
+  --divide-color: rgba(71, 85, 105, 0.1);
+}
+
+.dark {
+  --bg-app: #030712;
+  --bg-card: #0b0f19;
+  --bg-hover: #1e293b;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --border-color: rgba(148, 163, 184, 0.25);
+  --divide-color: rgba(148, 163, 184, 0.15);
+}
+
+/* Global Dark Mode Overrides */
+.dark body, .dark html, .dark #root {
+  background-color: var(--bg-app) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Let's redefine standard background and text utility styles for seamless Dark Mode */
+.dark .bg-white {
+  background-color: var(--bg-card) !important;
+}
+.dark .bg-\[\#F9FAFB\] {
+  background-color: var(--bg-app) !important;
+}
+.dark .text-\[\#0F172A\] {
+  color: var(--text-primary) !important;
+}
+.dark .text-\[\#475569\] {
+  color: var(--text-secondary) !important;
+}
+.dark .border-\[\#475569\]\/20,
+.dark .border-slate-200 {
+  border-color: var(--border-color) !important;
+}
+.dark .border-\[\#475569\]\/10,
+.dark .border-\[\#475569\]\/15 {
+  border-color: var(--divide-color) !important;
+}
+.dark .divide-\[\#475569\]\/10 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--divide-color) !important;
+}
+.dark .hover\:bg-slate-50:hover {
+  background-color: var(--bg-hover) !important;
+}
+.dark .bg-slate-50 {
+  background-color: var(--bg-hover) !important;
+}
+.dark .text-slate-900 {
+  color: var(--text-primary) !important;
+}
+.dark .text-slate-700 {
+  color: var(--text-secondary) !important;
+}
+.dark .text-[#0F172A] {
+  color: var(--text-primary) !important;
+}
+.dark svg[stroke="#0F172A"] {
+  stroke: var(--text-primary) !important;
+}
+.dark svg[fill="#0F172A"] {
+  fill: var(--text-primary) !important;
+}
+.dark input, .dark select, .dark textarea {
+  background-color: #111827 !important;
+  color: #f8fafc !important;
+  border-color: rgba(148, 163, 184, 0.3) !important;
+}
+.dark .text-gray-900 {
+  color: var(--text-primary) !important;
+}
+.dark .text-gray-500 {
+  color: var(--text-secondary) !important;
+}
+.dark .bg-gray-50 {
+  background-color: var(--bg-hover) !important;
+}
+.dark .border-gray-200 {
+  border-color: var(--border-color) !important;
+}
