@@ -1444,18 +1444,19 @@ export default function App() {
 
   // Helper to trigger interactive HTML email mock delivery
   const triggerEmailSimulation = async (subject: string, messageBody: string) => {
+    const targetEmail = isLoggedIn && authEmail ? authEmail : "sathya.rammalu@gmail.com";
     try {
       await apiFetch("/api/notifications/simulate-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: "sathya.rammalu@gmail.com" })
+        body: JSON.stringify({ email: targetEmail })
       });
       
       const updatedLogs = await apiFetch("/api/logs").then(r => r.json());
       setLogs(updatedLogs);
 
       setLastEmailSent({
-        to: "sathya.rammalu@gmail.com",
+        to: targetEmail,
         timestamp: new Date().toISOString().replace("T", " ").substring(0, 19),
         subject: `[SubSnap Alert] ${subject}`,
         content: messageBody,
@@ -1829,7 +1830,7 @@ export default function App() {
                 />
               </div>
               <label htmlFor="email-toggle" className="text-[10px] text-[#475569] leading-tight cursor-pointer">
-                Auto-simulate warnings to <strong className="font-bold text-[#0F172A]">sathya.rammalu@gmail.com</strong> on subscription updates.
+                Auto-simulate warnings to <strong className="font-bold text-[#0F172A]">{isLoggedIn && authEmail ? authEmail : "your registered email"}</strong> on subscription updates.
               </label>
             </div>
 
@@ -2222,7 +2223,7 @@ export default function App() {
                 )}
               </div>
               <span className="text-xs font-bold text-[#0F172A] hidden sm:inline">
-                {isLoggedIn && userName ? `${userName} (${authEmail})` : "sathya.rammalu@gmail.com"}
+                {isLoggedIn && userName ? userName : "Guest User"}
               </span>
             </div>
           </div>
