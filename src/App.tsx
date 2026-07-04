@@ -459,7 +459,7 @@ export default function App() {
   const [sortBy, setSortBy] = useState<"name" | "amount" | "renewal">("name");
   const [alertActive, setAlertActive] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "vrp" | "logs" | "config" | 
+    "dashboard" | "vrp" | "logs" | "config" | "login" |
     "darkPatterns" | "complianceAudit" | "regulatoryTracker" | 
     "costCalculator" | "flowComparison" | "inertiaProfiler" | 
     "consentLog" | "researchData" | "privacyPolicy"
@@ -1205,37 +1205,36 @@ export default function App() {
   };
 
   const getSpendingTrendsData = () => {
-    const netflixActive = subscriptions.some(s => s.id === "netflix-1" && s.status !== "cancelled" && s.status !== "revoked");
-    const spotifyActive = subscriptions.some(s => s.id === "spotify-1" && s.status !== "cancelled" && s.status !== "revoked");
-    const adobeActive = subscriptions.some(s => s.id === "adobe-1" && s.status !== "cancelled" && s.status !== "revoked");
-    const dashlaneActive = subscriptions.some(s => s.id === "dashlane-1" && s.status !== "cancelled" && s.status !== "revoked");
+    if (subscriptions.length === 0) {
+      return [
+        { month: "Jan 26", "Total Spending": 0, "Core Subscriptions": 0, "Spikes / Adds": 0, "Previous Period Spending": 0 },
+        { month: "Feb 26", "Total Spending": 0, "Core Subscriptions": 0, "Spikes / Adds": 0, "Previous Period Spending": 0 },
+        { month: "Mar 26", "Total Spending": 0, "Core Subscriptions": 0, "Spikes / Adds": 0, "Previous Period Spending": 0 },
+        { month: "Apr 26", "Total Spending": 0, "Core Subscriptions": 0, "Spikes / Adds": 0, "Previous Period Spending": 0 },
+        { month: "May 26", "Total Spending": 0, "Core Subscriptions": 0, "Spikes / Adds": 0, "Previous Period Spending": 0 },
+        { month: "Jun 26 (Current)", "Total Spending": 0, "Core Subscriptions": 0, "Spikes / Adds": 0, "Previous Period Spending": 0 }
+      ];
+    }
 
-    const janTotal = convertCurrency(19.99 + 10.99, "USD", currency);
-    const febTotal = convertCurrency(19.99 + 10.99, "USD", currency);
-    const marTotal = convertCurrency(19.99 + 10.99 + 89.99, "USD", currency);
-    const aprTotal = convertCurrency(19.99 + 10.99 + 89.99, "USD", currency);
-    const mayTotal = convertCurrency(19.99 + 10.99 + 89.99 + 4.99, "USD", currency);
+    const activeSubs = subscriptions.filter(s => s.status !== "cancelled" && s.status !== "revoked");
+    const totalActiveMonthly = activeSubs.reduce((sum, s) => sum + getMonthlyCost(s), 0);
+    const designAndOthers = activeSubs.filter(s => s.category === "Design" || s.category === "Entertainment");
+    const coreSubs = activeSubs.filter(s => s.category !== "Design");
+    const totalCoreMonthly = coreSubs.reduce((sum, s) => sum + getMonthlyCost(s), 0);
+    const totalDesignMonthly = designAndOthers.reduce((sum, s) => sum + getMonthlyCost(s), 0);
 
-    const junTotal = 
-      (netflixActive ? convertCurrency(19.99, "USD", currency) : 0) + 
-      (spotifyActive ? convertCurrency(10.99, "USD", currency) : 0) + 
-      (adobeActive ? convertCurrency(89.99, "USD", currency) : 0) + 
-      (dashlaneActive ? convertCurrency(4.99, "USD", currency) : 0);
+    const currentTotal = Number(totalActiveMonthly.toFixed(2));
+    const currentCore = Number(totalCoreMonthly.toFixed(2));
+    const currentSpikes = Number(totalDesignMonthly.toFixed(2));
 
-    const julTotalPrev = convertCurrency(19.99 + 10.99, "USD", currency);
-    const augTotalPrev = convertCurrency(19.99 + 10.99, "USD", currency);
-    const sepTotalPrev = convertCurrency(19.99 + 10.99, "USD", currency);
-    const octTotalPrev = convertCurrency(19.99 + 10.99 + 14.99, "USD", currency);
-    const novTotalPrev = convertCurrency(19.99 + 10.99, "USD", currency);
-    const decTotalPrev = convertCurrency(19.99 + 10.99, "USD", currency);
-
+    // To simulate realistic history based on current subscriptions
     return [
-      { month: "Jan 26", "Total Spending": Number(janTotal.toFixed(2)), "Core Subscriptions": Number(convertCurrency(30.98, "USD", currency).toFixed(2)), "Spikes / Adds": 0, "Previous Period Spending": Number(julTotalPrev.toFixed(2)) },
-      { month: "Feb 26", "Total Spending": Number(febTotal.toFixed(2)), "Core Subscriptions": Number(convertCurrency(30.98, "USD", currency).toFixed(2)), "Spikes / Adds": 0, "Previous Period Spending": Number(augTotalPrev.toFixed(2)) },
-      { month: "Mar 26", "Total Spending": Number(marTotal.toFixed(2)), "Core Subscriptions": Number(convertCurrency(30.98, "USD", currency).toFixed(2)), "Spikes / Adds": Number(convertCurrency(89.99, "USD", currency).toFixed(2)), "Previous Period Spending": Number(sepTotalPrev.toFixed(2)) },
-      { month: "Apr 26", "Total Spending": Number(aprTotal.toFixed(2)), "Core Subscriptions": Number(convertCurrency(30.98, "USD", currency).toFixed(2)), "Spikes / Adds": Number(convertCurrency(89.99, "USD", currency).toFixed(2)), "Previous Period Spending": Number(octTotalPrev.toFixed(2)) },
-      { month: "May 26", "Total Spending": Number(mayTotal.toFixed(2)), "Core Subscriptions": Number(convertCurrency(35.97, "USD", currency).toFixed(2)), "Spikes / Adds": Number(convertCurrency(89.99, "USD", currency).toFixed(2)), "Previous Period Spending": Number(novTotalPrev.toFixed(2)) },
-      { month: "Jun 26 (Current)", "Total Spending": Number(junTotal.toFixed(2)), "Core Subscriptions": Number(((netflixActive ? convertCurrency(19.99, "USD", currency) : 0) + (spotifyActive ? convertCurrency(10.99, "USD", currency) : 0) + (dashlaneActive ? convertCurrency(4.99, "USD", currency) : 0)).toFixed(2)), "Spikes / Adds": adobeActive ? Number(convertCurrency(89.99, "USD", currency).toFixed(2)) : 0, "Previous Period Spending": Number(decTotalPrev.toFixed(2)) }
+      { month: "Jan 26", "Total Spending": Number((currentCore * 0.9).toFixed(2)), "Core Subscriptions": Number((currentCore * 0.9).toFixed(2)), "Spikes / Adds": 0, "Previous Period Spending": Number((currentCore * 0.8).toFixed(2)) },
+      { month: "Feb 26", "Total Spending": Number((currentCore * 0.95).toFixed(2)), "Core Subscriptions": Number((currentCore * 0.95).toFixed(2)), "Spikes / Adds": 0, "Previous Period Spending": Number((currentCore * 0.85).toFixed(2)) },
+      { month: "Mar 26", "Total Spending": Number((currentTotal * 0.95).toFixed(2)), "Core Subscriptions": Number((currentCore * 0.95).toFixed(2)), "Spikes / Adds": Number((currentSpikes * 0.95).toFixed(2)), "Previous Period Spending": Number((currentCore * 0.85).toFixed(2)) },
+      { month: "Apr 26", "Total Spending": Number((currentTotal * 0.98).toFixed(2)), "Core Subscriptions": Number((currentCore * 0.98).toFixed(2)), "Spikes / Adds": Number((currentSpikes * 0.98).toFixed(2)), "Previous Period Spending": Number((currentCore * 0.9).toFixed(2)) },
+      { month: "May 26", "Total Spending": Number(currentTotal.toFixed(2)), "Core Subscriptions": Number(currentCore.toFixed(2)), "Spikes / Adds": Number(currentSpikes.toFixed(2)), "Previous Period Spending": Number((currentCore * 0.9).toFixed(2)) },
+      { month: "Jun 26 (Current)", "Total Spending": currentTotal, "Core Subscriptions": currentCore, "Spikes / Adds": currentSpikes, "Previous Period Spending": Number((currentCore * 0.92).toFixed(2)) }
     ];
   };
 
@@ -1609,7 +1608,45 @@ export default function App() {
             </span>
           </button>
 
-          {isLoggedIn ? (
+          <button 
+            onClick={() => navigateToTab("config")}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-bold transition-all ${
+              activeTab === "config" 
+                ? "bg-[#0F172A] text-white" 
+                : "text-[#475569] hover:bg-slate-50 hover:text-[#0F172A]"
+            }`}
+            id="sidebar-bank-setup-button"
+          >
+            <div className="flex items-center gap-2.5">
+              <Database className="w-4 h-4 shrink-0" />
+              <span>Bank Setup</span>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 opacity-40" />
+          </button>
+
+          <button 
+            onClick={() => navigateToTab("login")}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-bold transition-all ${
+              activeTab === "login" 
+                ? "bg-[#0F172A] text-white" 
+                : "text-[#475569] hover:bg-slate-50 hover:text-[#0F172A]"
+            }`}
+            id="sidebar-login-button"
+          >
+            <div className="flex items-center gap-2.5">
+              <User className="w-4 h-4 shrink-0" />
+              <span>{isLoggedIn ? "Login (Profile)" : "Login"}</span>
+            </div>
+            {isLoggedIn ? (
+              <span className="bg-emerald-100 text-emerald-800 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                Active
+              </span>
+            ) : (
+              <ChevronRight className="w-3.5 h-3.5 opacity-40" />
+            )}
+          </button>
+
+          {isLoggedIn && (
             <button 
               onClick={handleLogOut}
               className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-bold transition-all text-rose-600 hover:bg-rose-50 hover:text-rose-700 border border-rose-200/40"
@@ -1619,22 +1656,6 @@ export default function App() {
                 <LogOut className="w-4 h-4 shrink-0" />
                 <span>Log Out</span>
               </div>
-            </button>
-          ) : (
-            <button 
-              onClick={() => navigateToTab("config")}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-bold transition-all ${
-                activeTab === "config" 
-                  ? "bg-[#0F172A] text-white" 
-                  : "text-[#475569] hover:bg-slate-50 hover:text-[#0F172A]"
-              }`}
-              id="sidebar-bank-setup-button"
-            >
-              <div className="flex items-center gap-2.5">
-                <Database className="w-4 h-4 shrink-0" />
-                <span>Bank Setup</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 opacity-40" />
             </button>
           )}
 
@@ -1940,6 +1961,12 @@ export default function App() {
                   <span className="lg:hidden">BANK SETUP</span>
                 </>
               )}
+              {activeTab === "login" && (
+                <>
+                  <span className="hidden lg:inline">SECURE LOGIN & USER ACCOUNT PORTAL</span>
+                  <span className="lg:hidden">LOGIN PORTAL</span>
+                </>
+              )}
               {activeTab === "darkPatterns" && (
                 <>
                   <span className="hidden lg:inline">TRICKY SIGN-UP TRAPS & CANCELLATION BARRIERS</span>
@@ -2202,7 +2229,7 @@ export default function App() {
         </header>
 
         {/* HIGH-SALIENCE BILLING NOTIFICATION CARD (placed absolute top of workspace) */}
-        {activeTab === "dashboard" && alertActive && (
+        {activeTab === "dashboard" && alertActive && subscriptions.some(s => s.id === "adobe-1" && s.status !== "cancelled" && s.status !== "revoked") && (
           <div className="px-6 pt-6 shrink-0">
             <div className="bg-white border-2 border-slate-900 rounded-lg p-5 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 relative overflow-hidden">
               <div className="absolute top-0 bottom-0 left-0 w-2 bg-[#EF4444]"></div>
@@ -2638,185 +2665,241 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* Select All & Bulk Actions Panel */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-white border border-[#475569]/15 rounded-lg shadow-sm text-xs">
-                      <div className="flex items-center gap-2">
-                        <input 
-                          type="checkbox"
-                          id="select-all-subs"
-                          checked={subscriptions.length > 0 && bulkSelectedIds.length === subscriptions.length}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setBulkSelectedIds(subscriptions.map(s => s.id));
-                            } else {
-                              setBulkSelectedIds([]);
-                            }
-                          }}
-                          className="rounded border-slate-300 text-[#0F172A] focus:ring-slate-500 w-4 h-4 cursor-pointer accent-[#10B981]"
-                        />
-                        <label htmlFor="select-all-subs" className="font-bold text-[#0F172A] cursor-pointer uppercase tracking-wider text-[10px]">
-                          Select All Streams ({subscriptions.length})
-                        </label>
-                      </div>
-                      
-                      {bulkSelectedIds.length > 0 && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-[9px] font-mono font-black text-[#475569] bg-slate-100 px-2.5 py-1 rounded border border-[#475569]/10">
-                            {bulkSelectedIds.length} SELECTED
-                          </span>
-                          <button 
-                            onClick={handleBulkCancel}
-                            className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded font-bold text-[9px] uppercase tracking-wider transition-colors shadow-sm flex items-center gap-1 cursor-pointer"
+                    {subscriptions.length === 0 ? (
+                      <div className="bg-white border-2 border-slate-900 rounded-lg p-8 shadow-md text-center flex flex-col items-center justify-center gap-6 my-2">
+                        <div className="w-16 h-16 rounded-full bg-[#F1F5F9] border border-slate-300 flex items-center justify-center text-slate-400">
+                          <PlusCircle className="w-8 h-8 text-indigo-600" />
+                        </div>
+                        
+                        <div className="space-y-2 max-w-md">
+                          <h3 className="text-base font-black text-[#0F172A] uppercase tracking-wide">
+                            No Active Streams Detected
+                          </h3>
+                          <p className="text-sm text-[#475569] leading-relaxed">
+                            No subscriptions added yet. Add your first subscription to get started.
+                          </p>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row gap-3 w-full justify-center max-w-md">
+                          <button
+                            onClick={() => {
+                              setActiveTab("config");
+                              setOnboardingOption("manual");
+                            }}
+                            className="flex-1 py-3 px-4 bg-[#0F172A] hover:bg-slate-900 text-white font-bold text-xs uppercase tracking-wider rounded-lg transition-all duration-150 flex items-center justify-center gap-2 shadow cursor-pointer"
                           >
-                            <X className="w-3 h-3" /> Cancel Selected
+                            <PlusCircle className="w-4 h-4" />
+                            Add Manually
                           </button>
-                          <button 
-                            onClick={handleBulkRevoke}
-                            className="px-2.5 py-1 bg-[#EF4444] hover:bg-red-700 text-white rounded font-bold text-[9px] uppercase tracking-wider transition-colors shadow-sm flex items-center gap-1 cursor-pointer"
+                          
+                          <button
+                            onClick={() => {
+                              setActiveTab("config");
+                              setOnboardingOption("csv");
+                            }}
+                            className="flex-1 py-3 px-4 bg-white hover:bg-slate-50 text-[#0F172A] font-bold text-xs uppercase tracking-wider rounded-lg transition-all duration-150 border-2 border-[#0F172A] flex items-center justify-center gap-2 shadow-sm cursor-pointer"
                           >
-                            <Zap className="w-3 h-3" /> Revoke Selected
+                            <UploadCloud className="w-4 h-4" />
+                            Upload Statement
                           </button>
                         </div>
-                      )}
-                    </div>
 
-                    {/* Streams List */}
-                    <div className="flex flex-col gap-3">
-                      {[...subscriptions].sort((a, b) => {
-                        if (sortBy === "name") {
-                          return a.name.localeCompare(b.name);
-                        } else if (sortBy === "amount") {
-                          return b.amount - a.amount;
-                        } else if (sortBy === "renewal") {
-                          return new Date(a.predictedNextDate).getTime() - new Date(b.predictedNextDate).getTime();
-                        }
-                        return 0;
-                      }).map((sub) => {
-                        const isSelected = selectedSubId === sub.id;
-                        const hasAnomaly = !!sub.anomalyFlag;
-                        const isBulkChecked = bulkSelectedIds.includes(sub.id);
-                        
-                        return (
-                          <div 
-                            key={sub.id}
-                            id={`sub-item-${sub.id}`}
-                            onClick={() => setSelectedSubId(sub.id)}
-                            className={`group relative p-4 rounded-lg border transition-all duration-150 cursor-pointer flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
-                              isSelected 
-                                ? "bg-white border-[#0F172A] shadow-md ring-1 ring-[#0F172A]" 
-                                : "bg-white border-[#475569]/20 hover:border-[#475569]/60 hover:bg-slate-50"
-                            } ${sub.status === "cancelled" || sub.status === "revoked" ? "opacity-60" : ""}`}
+                        <div className="border-t border-slate-100 pt-5 w-full flex flex-col items-center gap-3">
+                          <p className="text-[10px] text-slate-500 font-mono uppercase">
+                            Or execute automatic detection simulation:
+                          </p>
+                          <button
+                            onClick={handleSimulateDiscovery}
+                            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider rounded-lg transition-colors flex items-center gap-2 cursor-pointer shadow-sm"
                           >
-                            {/* Individual selection checkbox */}
-                            <div 
-                              className="flex items-center self-stretch sm:self-auto shrink-0 pr-1 z-10" 
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <input 
-                                type="checkbox"
-                                checked={isBulkChecked}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setBulkSelectedIds(prev => [...prev, sub.id]);
-                                  } else {
-                                    setBulkSelectedIds(prev => prev.filter(id => id !== sub.id));
-                                  }
-                                }}
-                                className="rounded border-slate-300 text-[#0F172A] focus:ring-slate-500 w-4.5 h-4.5 cursor-pointer accent-[#10B981]"
-                                aria-label={`Select subscription ${sub.name}`}
-                              />
-                            </div>
-                            {/* Accent indicators on Left for quick salience scanning */}
-                            {hasAnomaly && sub.status === "active" && (
-                              <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#EF4444]"></div>
-                            )}
-                            {sub.status === "cancelled" && (
-                              <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#f59e0b]"></div>
-                            )}
-                            {sub.status === "revoked" && (
-                              <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#EF4444]"></div>
-                            )}
-
-                            {/* Left Content: Logo, Name, Meta */}
-                            <div className="flex gap-4 items-center flex-1 min-w-0">
-                              
-                              {/* Integrated Merchant Logo Component (Fulfills logo integration request) */}
-                              <MerchantLogo 
-                                name={sub.name} 
-                                logoLetter={sub.logoLetter} 
-                                logoUrl={sub.logoUrl} 
-                              />
-
-                              <div className="flex flex-col min-w-0">
-                                <p className="font-bold text-[#0F172A] flex flex-wrap items-center gap-2 text-sm md:text-base leading-snug">
-                                  {sub.name}
-                                  
-                                  {/* Badges */}
-                                  {sub.status === "keeping" && (
-                                    <span className="px-1.5 py-0.5 bg-[#10B981]/15 text-[#10B981] text-[9px] font-black tracking-widest rounded-lg border border-[#10B981]/20">
-                                      RETAINED
-                                    </span>
-                                  )}
-                                  {sub.status === "cancelled" && (
-                                    <span className="px-1.5 py-0.5 bg-[#f59e0b]/15 text-[#f59e0b] text-[9px] font-black tracking-widest rounded-lg border border-[#f59e0b]/20">
-                                      PENDING TERMINATION
-                                    </span>
-                                  )}
-                                  {sub.status === "revoked" && (
-                                    <span className="px-1.5 py-0.5 bg-[#EF4444]/15 text-[#EF4444] text-[9px] font-black tracking-widest rounded-lg border border-[#EF4444]/20">
-                                      VRP BLOCKED
-                                    </span>
-                                  )}
-                                  {hasAnomaly && sub.status === "active" && (
-                                    <span className="px-1.5 py-0.5 bg-[#EF4444]/15 text-[#EF4444] text-[9px] font-black tracking-widest rounded-lg border border-[#EF4444]/20 animate-pulse">
-                                      INACTIVE GHOST STREAM
-                                    </span>
-                                  )}
-                                </p>
-
-                                {hasAnomaly && sub.status === "active" ? (
-                                  <p className="text-xs text-[#EF4444] mt-1 font-bold flex items-center gap-1">
-                                    <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
-                                    {sub.anomalyFlag}
-                                  </p>
-                                ) : (
-                                  <p className="text-xs text-[#475569] mt-0.5 uppercase tracking-tighter">
-                                    {sub.billingDetails} • Last used {sub.lastUsedDaysAgo === 0 ? "today" : `${sub.lastUsedDaysAgo}d ago`}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Right Content: Billing details */}
-                            <div className="text-left sm:text-right flex sm:flex-col items-baseline sm:items-end justify-between sm:justify-center w-full sm:w-auto shrink-0 gap-2 border-t border-[#475569]/10 sm:border-t-0 pt-2 sm:pt-0 font-mono text-xs">
-                              <div>
-                                <p className="font-bold text-base text-[#0F172A] leading-none">
-                                  {formatCurrency(convertCurrency(sub.amount, sub.currency || "USD", currency), currency)}
-                                </p>
-                                <span className="text-[9px] text-[#475569] uppercase font-bold tracking-wider">
-                                  {sub.frequency}
-                                </span>
-                              </div>
-                              <div className="text-right">
-                                {sub.status === "active" || sub.status === "keeping" ? (
-                                  <p className="text-[10px] text-[#10B981] font-bold uppercase bg-[#10B981]/10 px-2 py-0.5 rounded-lg border border-[#10B981]/15">
-                                    NEXT BILL: {new Date(sub.predictedNextDate).toLocaleDateString('en-US', {month: 'short', day: '2-digit'}).toUpperCase()}
-                                  </p>
-                                ) : sub.status === "cancelled" ? (
-                                  <p className="text-[10px] text-[#f59e0b] font-bold uppercase bg-[#f59e0b]/10 px-2 py-0.5 rounded-lg border border-[#f59e0b]/15">
-                                    EXPIRES: {new Date(sub.predictedNextDate).toLocaleDateString('en-US', {month: 'short', day: '2-digit'}).toUpperCase()}
-                                  </p>
-                                ) : (
-                                  <p className="text-[10px] text-[#EF4444] font-bold uppercase bg-[#EF4444]/10 px-2 py-0.5 rounded-lg border border-[#EF4444]/15">
-                                    MANDATE BLOCKED
-                                  </p>
-                                )}
-                              </div>
-                            </div>
+                            <Sparkles className="w-4 h-4" />
+                            Simulate Stream Discovery
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Select All & Bulk Actions Panel */}
+                        <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-white border border-[#475569]/15 rounded-lg shadow-sm text-xs">
+                          <div className="flex items-center gap-2">
+                            <input 
+                              type="checkbox"
+                              id="select-all-subs"
+                              checked={subscriptions.length > 0 && bulkSelectedIds.length === subscriptions.length}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setBulkSelectedIds(subscriptions.map(s => s.id));
+                                } else {
+                                  setBulkSelectedIds([]);
+                                }
+                              }}
+                              className="rounded border-slate-300 text-[#0F172A] focus:ring-slate-500 w-4 h-4 cursor-pointer accent-[#10B981]"
+                            />
+                            <label htmlFor="select-all-subs" className="font-bold text-[#0F172A] cursor-pointer uppercase tracking-wider text-[10px]">
+                              Select All Streams ({subscriptions.length})
+                            </label>
                           </div>
-                        );
-                      })}
-                    </div>
+                          
+                          {bulkSelectedIds.length > 0 && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] font-mono font-black text-[#475569] bg-slate-100 px-2.5 py-1 rounded border border-[#475569]/10">
+                                {bulkSelectedIds.length} SELECTED
+                              </span>
+                              <button 
+                                onClick={handleBulkCancel}
+                                className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded font-bold text-[9px] uppercase tracking-wider transition-colors shadow-sm flex items-center gap-1 cursor-pointer"
+                              >
+                                <X className="w-3 h-3" /> Cancel Selected
+                              </button>
+                              <button 
+                                onClick={handleBulkRevoke}
+                                className="px-2.5 py-1 bg-[#EF4444] hover:bg-red-700 text-white rounded font-bold text-[9px] uppercase tracking-wider transition-colors shadow-sm flex items-center gap-1 cursor-pointer"
+                              >
+                                <Zap className="w-3 h-3" /> Revoke Selected
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Streams List */}
+                        <div className="flex flex-col gap-3">
+                          {[...subscriptions].sort((a, b) => {
+                            if (sortBy === "name") {
+                              return a.name.localeCompare(b.name);
+                            } else if (sortBy === "amount") {
+                              return b.amount - a.amount;
+                            } else if (sortBy === "renewal") {
+                              return new Date(a.predictedNextDate).getTime() - new Date(b.predictedNextDate).getTime();
+                            }
+                            return 0;
+                          }).map((sub) => {
+                            const isSelected = selectedSubId === sub.id;
+                            const hasAnomaly = !!sub.anomalyFlag;
+                            const isBulkChecked = bulkSelectedIds.includes(sub.id);
+                            
+                            return (
+                              <div 
+                                key={sub.id}
+                                id={`sub-item-${sub.id}`}
+                                onClick={() => setSelectedSubId(sub.id)}
+                                className={`group relative p-4 rounded-lg border transition-all duration-150 cursor-pointer flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+                                  isSelected 
+                                    ? "bg-white border-[#0F172A] shadow-md ring-1 ring-[#0F172A]" 
+                                    : "bg-white border-[#475569]/20 hover:border-[#475569]/60 hover:bg-slate-50"
+                                } ${sub.status === "cancelled" || sub.status === "revoked" ? "opacity-60" : ""}`}
+                              >
+                                {/* Individual selection checkbox */}
+                                <div 
+                                  className="flex items-center self-stretch sm:self-auto shrink-0 pr-1 z-10" 
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <input 
+                                    type="checkbox"
+                                    checked={isBulkChecked}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setBulkSelectedIds(prev => [...prev, sub.id]);
+                                      } else {
+                                        setBulkSelectedIds(prev => prev.filter(id => id !== sub.id));
+                                      }
+                                    }}
+                                    className="rounded border-slate-300 text-[#0F172A] focus:ring-slate-500 w-4.5 h-4.5 cursor-pointer accent-[#10B981]"
+                                    aria-label={`Select subscription ${sub.name}`}
+                                  />
+                                </div>
+                                {/* Accent indicators on Left for quick salience scanning */}
+                                {hasAnomaly && sub.status === "active" && (
+                                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#EF4444]"></div>
+                                )}
+                                {sub.status === "cancelled" && (
+                                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#f59e0b]"></div>
+                                )}
+                                {sub.status === "revoked" && (
+                                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#EF4444]"></div>
+                                )}
+
+                                {/* Left Content: Logo, Name, Meta */}
+                                <div className="flex gap-4 items-center flex-1 min-w-0">
+                                  
+                                  {/* Integrated Merchant Logo Component (Fulfills logo integration request) */}
+                                  <MerchantLogo 
+                                    name={sub.name} 
+                                    logoLetter={sub.logoLetter} 
+                                    logoUrl={sub.logoUrl} 
+                                  />
+
+                                  <div className="flex flex-col min-w-0">
+                                    <p className="font-bold text-[#0F172A] flex flex-wrap items-center gap-2 text-sm md:text-base leading-snug">
+                                      {sub.name}
+                                      
+                                      {/* Badges */}
+                                      {sub.status === "keeping" && (
+                                        <span className="px-1.5 py-0.5 bg-[#10B981]/15 text-[#10B981] text-[9px] font-black tracking-widest rounded-lg border border-[#10B981]/20">
+                                          RETAINED
+                                        </span>
+                                      )}
+                                      {sub.status === "cancelled" && (
+                                        <span className="px-1.5 py-0.5 bg-[#f59e0b]/15 text-[#f59e0b] text-[9px] font-black tracking-widest rounded-lg border border-[#f59e0b]/20">
+                                          PENDING TERMINATION
+                                        </span>
+                                      )}
+                                      {sub.status === "revoked" && (
+                                        <span className="px-1.5 py-0.5 bg-[#EF4444]/15 text-[#EF4444] text-[9px] font-black tracking-widest rounded-lg border border-[#EF4444]/20">
+                                          VRP BLOCKED
+                                        </span>
+                                      )}
+                                      {hasAnomaly && sub.status === "active" && (
+                                        <span className="px-1.5 py-0.5 bg-[#EF4444]/15 text-[#EF4444] text-[9px] font-black tracking-widest rounded-lg border border-[#EF4444]/20 animate-pulse">
+                                          INACTIVE GHOST STREAM
+                                        </span>
+                                      )}
+                                    </p>
+
+                                    {hasAnomaly && sub.status === "active" ? (
+                                      <p className="text-xs text-[#EF4444] mt-1 font-bold flex items-center gap-1">
+                                        <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
+                                        {sub.anomalyFlag}
+                                      </p>
+                                    ) : (
+                                      <p className="text-xs text-[#475569] mt-0.5 uppercase tracking-tighter">
+                                        {sub.billingDetails} • Last used {sub.lastUsedDaysAgo === 0 ? "today" : `${sub.lastUsedDaysAgo}d ago`}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Right Content: Billing details */}
+                                <div className="text-left sm:text-right flex sm:flex-col items-baseline sm:items-end justify-between sm:justify-center w-full sm:w-auto shrink-0 gap-2 border-t border-[#475569]/10 sm:border-t-0 pt-2 sm:pt-0 font-mono text-xs">
+                                  <div>
+                                    <p className="font-bold text-base text-[#0F172A] leading-none">
+                                      {formatCurrency(convertCurrency(sub.amount, sub.currency || "USD", currency), currency)}
+                                    </p>
+                                    <span className="text-[9px] text-[#475569] uppercase font-bold tracking-wider">
+                                      {sub.frequency}
+                                    </span>
+                                  </div>
+                                  <div className="text-right">
+                                    {sub.status === "active" || sub.status === "keeping" ? (
+                                      <p className="text-[10px] text-[#10B981] font-bold uppercase bg-[#10B981]/10 px-2 py-0.5 rounded-lg border border-[#10B981]/15">
+                                        NEXT BILL: {new Date(sub.predictedNextDate).toLocaleDateString('en-US', {month: 'short', day: '2-digit'}).toUpperCase()}
+                                      </p>
+                                    ) : sub.status === "cancelled" ? (
+                                      <p className="text-[10px] text-[#f59e0b] font-bold uppercase bg-[#f59e0b]/10 px-2 py-0.5 rounded-lg border border-[#f59e0b]/15">
+                                        EXPIRES: {new Date(sub.predictedNextDate).toLocaleDateString('en-US', {month: 'short', day: '2-digit'}).toUpperCase()}
+                                      </p>
+                                    ) : (
+                                      <p className="text-[10px] text-[#EF4444] font-bold uppercase bg-[#EF4444]/10 px-2 py-0.5 rounded-lg border border-[#EF4444]/15">
+                                        MANDATE BLOCKED
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
 
                     {/* NEUTRAL AUTONOMY INTERVENTION DECK (Equal Weight Dual-Choice Button Block) */}
                     {selectedSubscription && (
@@ -3680,6 +3763,238 @@ export default function App() {
                 </div>
               )}
 
+              {activeTab === "login" && (
+                <div className="max-w-2xl mx-auto w-full space-y-6">
+                  {/* ACCOUNT SETUP PANEL */}
+                  <div className="bg-white p-6 rounded-lg border border-[#475569]/20 shadow-sm space-y-6">
+                    <div className="flex items-center gap-3 border-b border-[#475569]/10 pb-4">
+                      <User className="w-5 h-5 text-[#0F172A]" />
+                      <div>
+                        <h2 className="text-lg font-black text-[#0F172A] uppercase tracking-tight">Account Portal</h2>
+                        <p className="text-xs text-[#475569]">Manage secure cryptographic access credentials & subscriptions</p>
+                      </div>
+                    </div>
+
+                    {!isLoggedIn ? (
+                      <div className="bg-slate-950 text-white border-2 border-slate-900 rounded-lg p-5 space-y-4 shadow-md">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                          <span className="text-[10px] font-black tracking-wider uppercase text-emerald-400 font-mono">
+                            {gameStateSymbol()} {authState === "signup" ? "🔒 Sign Up State" : (authState === "reset" ? "🔄 Reset Password State" : "🔒 Login State")}
+                          </span>
+                          <span className="text-[9px] text-slate-500 font-mono">FTC SECURE AUTHENTICATOR</span>
+                        </div>
+
+                        <form onSubmit={authState === "reset" ? handlePasswordResetOutOfSession : (authState === "signup" ? handleSignUp : handleLogIn)} className="space-y-4">
+                          {authState === "signup" && (
+                            <div className="space-y-1">
+                              <label className="block text-slate-400 text-[10px] uppercase font-bold tracking-wider">Full Name</label>
+                              <input
+                                type="text"
+                                required
+                                placeholder="Sathya Rammalu"
+                                value={authName}
+                                onChange={(e) => setAuthName(e.target.value)}
+                                className="w-full bg-slate-900 border border-slate-700 focus:border-emerald-400 p-2.5 rounded text-white text-xs font-mono outline-none"
+                              />
+                            </div>
+                          )}
+
+                          <div className="space-y-1">
+                            <label className="block text-slate-400 text-[10px] uppercase font-bold tracking-wider">Email ID</label>
+                            <input
+                              type="email"
+                              required
+                              placeholder="yourname@example.com"
+                              value={authEmail}
+                              onChange={(e) => setAuthEmail(e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-700 focus:border-emerald-400 p-2.5 rounded text-white text-xs font-mono outline-none"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="block text-slate-400 text-[10px] uppercase font-bold tracking-wider">
+                              {authState === "reset" ? "New Password" : "Password"}
+                            </label>
+                            <input
+                              type="password"
+                              required
+                              placeholder="••••••••••••"
+                              value={authPassword}
+                              onChange={(e) => setAuthPassword(e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-700 focus:border-emerald-400 p-2.5 rounded text-white text-xs font-mono outline-none"
+                            />
+                          </div>
+
+                          {authState === "signup" && (
+                            <label className="flex items-start gap-2.5 text-slate-300 text-[11px] cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={termsAccepted}
+                                onChange={(e) => setTermsAccepted(e.target.checked)}
+                                className="mt-0.5 rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-400 h-3.5 w-3.5 cursor-pointer"
+                              />
+                              <span>I explicitly accept the <strong>Terms of Service</strong> and authorize automated active consent monitors under sovereign FTC regulations.</span>
+                            </label>
+                          )}
+
+                          <button
+                            type="submit"
+                            className="w-full py-3 bg-[#10B981] hover:bg-emerald-600 text-slate-950 font-black text-xs uppercase tracking-widest rounded transition-colors shadow-sm cursor-pointer mt-2"
+                          >
+                            {authState === "signup" ? "Create Secure Account" : (authState === "reset" ? "Reset Security Password" : "Access Console")}
+                          </button>
+
+                          {authMessage && (
+                            <div className={`p-3 rounded text-[11px] font-mono border ${
+                              authMessage.type === "success" 
+                                ? "bg-emerald-950/40 border-emerald-500/30 text-emerald-400" 
+                                : "bg-rose-950/40 border-rose-500/30 text-rose-400"
+                            }`}>
+                              {authMessage.text}
+                            </div>
+                          )}
+
+                          <div className="text-center pt-2 border-t border-slate-900 flex flex-col gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAuthState(authState === "signup" ? "login" : "signup");
+                                setAuthMessage(null);
+                              }}
+                              className="text-[11px] text-[#94A3B8] hover:text-white underline cursor-pointer"
+                            >
+                              {authState === "signup" 
+                                ? "Already registered? Log in here" 
+                                : "Need an account? Sign up here"}
+                            </button>
+
+                            {authState !== "signup" && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAuthState(authState === "reset" ? "login" : "reset");
+                                  setAuthMessage(null);
+                                }}
+                                className="text-[11px] text-[#94A3B8] hover:text-white underline cursor-pointer"
+                              >
+                                {authState === "reset" 
+                                  ? "Remember your password? Log in here" 
+                                  : "Forgot password? Reset password here"}
+                              </button>
+                            )}
+                          </div>
+                        </form>
+                      </div>
+                    ) : (
+                      <div className="bg-slate-950 text-white border-2 border-slate-900 rounded-lg p-5 space-y-4 shadow-md">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                          <span className="text-[10px] font-black tracking-wider uppercase text-emerald-400 font-mono">
+                            🔒 SECURE SYSTEM SESSION ACTIVE
+                          </span>
+                          <span className="text-[9px] text-slate-500 font-mono">AUTHENTICATED CONSOLE</span>
+                        </div>
+
+                        <div className="space-y-2 text-xs">
+                          <div className="p-3 bg-slate-900/60 rounded border border-slate-800 space-y-1.5">
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">Authenticated User:</span>
+                              <span className="font-bold text-white font-mono">{userName}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">Security Email:</span>
+                              <span className="font-bold text-white font-mono">{authEmail || "N/A"}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">Regulatory Clearance:</span>
+                              <span className="font-bold text-emerald-400 font-mono">FTC PASSED</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* PASSWORD RESET SUB-FORM */}
+                        <div className="border-t border-slate-800 pt-4 space-y-3">
+                          <span className="text-[9px] font-mono tracking-wider uppercase text-slate-400 block font-bold">
+                            Modify Security Credentials
+                          </span>
+                          {resetSuccessMessage && (
+                            <p className="text-emerald-400 text-xs font-mono">{resetSuccessMessage}</p>
+                          )}
+                          {resetErrorMessage && (
+                            <p className="text-[#EF4444] text-xs font-mono">{resetErrorMessage}</p>
+                          )}
+                          <form onSubmit={handlePasswordResetInSession} className="space-y-2">
+                            <div className="space-y-1">
+                              <label className="block text-slate-400 text-[9px] uppercase font-bold">New Secure Password</label>
+                              <input
+                                type="password"
+                                required
+                                placeholder="••••••••••••"
+                                value={newPasswordInput}
+                                onChange={(e) => setNewPasswordInput(e.target.value)}
+                                className="w-full bg-slate-900 border border-slate-700 focus:border-emerald-400 p-2 rounded text-white text-xs font-mono outline-none"
+                              />
+                            </div>
+                            <button
+                              type="submit"
+                              className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-[10px] uppercase tracking-wider rounded transition-colors"
+                            >
+                              Update Password
+                            </button>
+                          </form>
+                        </div>
+
+                        {/* DELETE ACCOUNT ACTION */}
+                        <div className="border-t border-slate-800 pt-4 space-y-3">
+                          <span className="text-[9px] font-mono tracking-wider uppercase text-slate-400 block font-bold">
+                            System Decommissioning
+                          </span>
+                          {!showDeleteConfirm ? (
+                            <button
+                              type="button"
+                              onClick={() => setShowDeleteConfirm(true)}
+                              className="w-full py-2 bg-rose-950/40 hover:bg-rose-900/40 border border-rose-900 text-rose-200 hover:text-rose-100 font-bold text-[10px] uppercase tracking-wider rounded transition-colors"
+                              id="btn-trigger-delete-account"
+                            >
+                              Delete Account
+                            </button>
+                          ) : (
+                            <div className="p-3 bg-rose-950/30 border border-rose-900/60 rounded space-y-3" id="delete-confirmation-dialog">
+                              <p className="text-[11px] text-rose-200 leading-normal">
+                                ⚠️ WARNING: This will permanently decommission your cryptographic user credentials, wipe active linkages, and reset all simulation databases. This action is irreversible.
+                              </p>
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={handleDeleteAccount}
+                                  className="flex-1 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-black text-[10px] uppercase tracking-wider rounded transition-colors"
+                                  id="btn-confirm-delete-account"
+                                >
+                                  Yes, Delete Account
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setShowDeleteConfirm(false)}
+                                  className="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-[10px] uppercase tracking-wider rounded transition-colors"
+                                  id="btn-cancel-delete-account"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="p-4 bg-slate-50 rounded-lg border border-[#475569]/15 text-[11px] text-[#475569] leading-relaxed">
+                      <p>
+                        Account credentials are encrypted using AES-256 standard protocols. SubSnap secures your consumer rights against dark pattern retention policies automatically.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {activeTab === "config" && (() => {
                 const latestSyncError = logs.find(log => log.action === "PLAID_SYNC_LIVE_FAILED");
 
@@ -3783,7 +4098,7 @@ export default function App() {
                 }
 
                 return (
-                  <div className={`mx-auto w-full space-y-6 ${onboardingOption === "plaid" ? "max-w-5xl" : "max-w-2xl"}`}>
+                  <div className="mx-auto w-full space-y-6 max-w-2xl">
                     <button
                       onClick={() => setOnboardingOption("none")}
                       className="flex items-center gap-2 text-xs font-bold text-[#475569] hover:text-[#0F172A] transition-colors bg-white px-3.5 py-2 border border-slate-200 rounded-lg shadow-sm"
@@ -3793,7 +4108,7 @@ export default function App() {
                     </button>
 
                     {onboardingOption === "plaid" && (
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                      <div className="space-y-6">
                         {/* BANK SETUP LIVE PANEL */}
                         <div className="bg-white p-6 rounded-lg border border-[#475569]/20 shadow-sm space-y-6">
                           <div className="flex items-center gap-3 border-b border-[#475569]/10 pb-4">
@@ -3911,234 +4226,6 @@ export default function App() {
                             </h4>
                             <p className="text-[11px] text-[#475569] leading-relaxed">
                               By saving client configurations above, you delegate authority to fetch recurring streams strictly on a read-only level. No transactional permissions are ever requested, complying with federal safety standards.
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* ACCOUNT SETUP PANEL */}
-                        <div className="bg-white p-6 rounded-lg border border-[#475569]/20 shadow-sm space-y-6">
-                          <div className="flex items-center gap-3 border-b border-[#475569]/10 pb-4">
-                            <User className="w-5 h-5 text-[#0F172A]" />
-                            <div>
-                              <h2 className="text-lg font-black text-[#0F172A] uppercase tracking-tight">Account Setup</h2>
-                              <p className="text-xs text-[#475569]">Manage secure cryptographic access credentials</p>
-                            </div>
-                          </div>
-
-                          {!isLoggedIn ? (
-                            <div className="bg-slate-950 text-white border-2 border-slate-900 rounded-lg p-5 space-y-4 shadow-md">
-                              <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-                                <span className="text-[10px] font-black tracking-wider uppercase text-emerald-400 font-mono">
-                                  {gameStateSymbol()} {authState === "signup" ? "🔒 Sign Up State" : (authState === "reset" ? "🔄 Reset Password State" : "🔒 Login State")}
-                                </span>
-                                <span className="text-[9px] text-slate-500 font-mono">FTC SECURE AUTHENTICATOR</span>
-                              </div>
-
-                              <form onSubmit={authState === "reset" ? handlePasswordResetOutOfSession : (authState === "signup" ? handleSignUp : handleLogIn)} className="space-y-4">
-                                {authState === "signup" && (
-                                  <div className="space-y-1">
-                                    <label className="block text-slate-400 text-[10px] uppercase font-bold tracking-wider">Full Name</label>
-                                    <input
-                                      type="text"
-                                      required
-                                      placeholder="Sathya Rammalu"
-                                      value={authName}
-                                      onChange={(e) => setAuthName(e.target.value)}
-                                      className="w-full bg-slate-900 border border-slate-700 focus:border-emerald-400 p-2.5 rounded text-white text-xs font-mono outline-none"
-                                    />
-                                  </div>
-                                )}
-
-                                <div className="space-y-1">
-                                  <label className="block text-slate-400 text-[10px] uppercase font-bold tracking-wider">Email ID</label>
-                                  <input
-                                    type="email"
-                                    required
-                                    placeholder="yourname@example.com"
-                                    value={authEmail}
-                                    onChange={(e) => setAuthEmail(e.target.value)}
-                                    className="w-full bg-slate-900 border border-slate-700 focus:border-emerald-400 p-2.5 rounded text-white text-xs font-mono outline-none"
-                                  />
-                                </div>
-
-                                <div className="space-y-1">
-                                  <label className="block text-slate-400 text-[10px] uppercase font-bold tracking-wider">
-                                    {authState === "reset" ? "New Password" : "Password"}
-                                  </label>
-                                  <input
-                                    type="password"
-                                    required
-                                    placeholder="••••••••••••"
-                                    value={authPassword}
-                                    onChange={(e) => setAuthPassword(e.target.value)}
-                                    className="w-full bg-slate-900 border border-slate-700 focus:border-emerald-400 p-2.5 rounded text-white text-xs font-mono outline-none"
-                                  />
-                                </div>
-
-                                {authState === "signup" && (
-                                  <label className="flex items-start gap-2.5 text-slate-300 text-[11px] cursor-pointer select-none">
-                                    <input
-                                      type="checkbox"
-                                      checked={termsAccepted}
-                                      onChange={(e) => setTermsAccepted(e.target.checked)}
-                                      className="mt-0.5 rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-400 h-3.5 w-3.5 cursor-pointer"
-                                    />
-                                    <span>I explicitly accept the <strong>Terms of Service</strong> and authorize automated active consent monitors under sovereign FTC regulations.</span>
-                                  </label>
-                                )}
-
-                                <button
-                                  type="submit"
-                                  className="w-full py-3 bg-[#10B981] hover:bg-emerald-600 text-slate-950 font-black text-xs uppercase tracking-widest rounded transition-colors shadow-sm cursor-pointer mt-2"
-                                >
-                                  {authState === "signup" ? "Create Secure Account" : (authState === "reset" ? "Reset Security Password" : "Access Console")}
-                                </button>
-
-                                {authMessage && (
-                                  <div className={`p-3 rounded text-[11px] font-mono border ${
-                                    authMessage.type === "success" 
-                                      ? "bg-emerald-950/40 border-emerald-500/30 text-emerald-400" 
-                                      : "bg-rose-950/40 border-rose-500/30 text-rose-400"
-                                  }`}>
-                                    {authMessage.text}
-                                  </div>
-                                )}
-
-                                <div className="text-center pt-2 border-t border-slate-900 flex flex-col gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setAuthState(authState === "signup" ? "login" : "signup");
-                                      setAuthMessage(null);
-                                    }}
-                                    className="text-[11px] text-[#94A3B8] hover:text-white underline cursor-pointer"
-                                  >
-                                    {authState === "signup" 
-                                      ? "Already registered? Log in here" 
-                                      : "Need an account? Sign up here"}
-                                  </button>
-
-                                  {authState !== "signup" && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setAuthState(authState === "reset" ? "login" : "reset");
-                                        setAuthMessage(null);
-                                      }}
-                                      className="text-[11px] text-[#94A3B8] hover:text-white underline cursor-pointer"
-                                    >
-                                      {authState === "reset" 
-                                        ? "Remember your password? Log in here" 
-                                        : "Forgot password? Reset password here"}
-                                    </button>
-                                  )}
-                                </div>
-                              </form>
-                            </div>
-                          ) : (
-                            <div className="bg-slate-950 text-white border-2 border-slate-900 rounded-lg p-5 space-y-4 shadow-md">
-                              <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-                                <span className="text-[10px] font-black tracking-wider uppercase text-emerald-400 font-mono">
-                                  🔒 SECURE SYSTEM SESSION ACTIVE
-                                </span>
-                                <span className="text-[9px] text-slate-500 font-mono">AUTHENTICATED CONSOLE</span>
-                              </div>
-
-                              <div className="space-y-2 text-xs">
-                                <div className="p-3 bg-slate-900/60 rounded border border-slate-800 space-y-1.5">
-                                  <div className="flex justify-between">
-                                    <span className="text-slate-400">Authenticated User:</span>
-                                    <span className="font-bold text-white font-mono">{userName}</span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-slate-400">Security Email:</span>
-                                    <span className="font-bold text-white font-mono">{authEmail || "N/A"}</span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-slate-400">Regulatory Clearance:</span>
-                                    <span className="font-bold text-emerald-400 font-mono">FTC PASSED</span>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* PASSWORD RESET SUB-FORM */}
-                              <div className="border-t border-slate-800 pt-4 space-y-3">
-                                <span className="text-[9px] font-mono tracking-wider uppercase text-slate-400 block font-bold">
-                                  Modify Security Credentials
-                                </span>
-                                {resetSuccessMessage && (
-                                  <p className="text-emerald-400 text-xs font-mono">{resetSuccessMessage}</p>
-                                )}
-                                {resetErrorMessage && (
-                                  <p className="text-[#EF4444] text-xs font-mono">{resetErrorMessage}</p>
-                                )}
-                                <form onSubmit={handlePasswordResetInSession} className="space-y-2">
-                                  <div className="space-y-1">
-                                    <label className="block text-slate-400 text-[9px] uppercase font-bold">New Secure Password</label>
-                                    <input
-                                      type="password"
-                                      required
-                                      placeholder="••••••••••••"
-                                      value={newPasswordInput}
-                                      onChange={(e) => setNewPasswordInput(e.target.value)}
-                                      className="w-full bg-slate-900 border border-slate-700 focus:border-emerald-400 p-2 rounded text-white text-xs font-mono outline-none"
-                                    />
-                                  </div>
-                                  <button
-                                    type="submit"
-                                    className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-[10px] uppercase tracking-wider rounded transition-colors"
-                                  >
-                                    Update Password
-                                  </button>
-                                </form>
-                              </div>
-
-                              {/* DELETE ACCOUNT ACTION */}
-                              <div className="border-t border-slate-800 pt-4 space-y-3">
-                                <span className="text-[9px] font-mono tracking-wider uppercase text-slate-400 block font-bold">
-                                  System Decommissioning
-                                </span>
-                                {!showDeleteConfirm ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => setShowDeleteConfirm(true)}
-                                    className="w-full py-2 bg-rose-950/40 hover:bg-rose-900/40 border border-rose-900 text-rose-200 hover:text-rose-100 font-bold text-[10px] uppercase tracking-wider rounded transition-colors"
-                                    id="btn-trigger-delete-account"
-                                  >
-                                    Delete Account
-                                  </button>
-                                ) : (
-                                  <div className="p-3 bg-rose-950/30 border border-rose-900/60 rounded space-y-3" id="delete-confirmation-dialog">
-                                    <p className="text-[11px] text-rose-200 leading-normal">
-                                      ⚠️ WARNING: This will permanently decommission your cryptographic user credentials, wipe active linkages, and reset all simulation databases. This action is irreversible.
-                                    </p>
-                                    <div className="flex gap-2">
-                                      <button
-                                        type="button"
-                                        onClick={handleDeleteAccount}
-                                        className="flex-1 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-black text-[10px] uppercase tracking-wider rounded transition-colors"
-                                        id="btn-confirm-delete-account"
-                                      >
-                                        Yes, Delete Account
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => setShowDeleteConfirm(false)}
-                                        className="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-[10px] uppercase tracking-wider rounded transition-colors"
-                                        id="btn-cancel-delete-account"
-                                      >
-                                        Cancel
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="p-4 bg-slate-50 rounded-lg border border-[#475569]/15 text-[11px] text-[#475569] leading-relaxed">
-                            <p>
-                              Account credentials are encrypted using AES-256 standard protocols. SubSnap secures your consumer rights against dark pattern retention policies automatically.
                             </p>
                           </div>
                         </div>
