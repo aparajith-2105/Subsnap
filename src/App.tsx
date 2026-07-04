@@ -401,7 +401,7 @@ export default function App() {
   // Establish real-time persistent WebSocket connection with exponential backoff, heartbeats, and automated sync fallback
   const { status: wsStatus, isPollingActive } = useWebSocket(wsUrl, {
     onPoll: () => {
-      handleSync();
+      handleSync(true);
     },
     onMessage: (event) => {
       try {
@@ -1180,8 +1180,8 @@ export default function App() {
     }
   };
 
-  const handleSync = async () => {
-    setIsSyncing(true);
+  const handleSync = async (silent = false) => {
+    if (!silent) setIsSyncing(true);
     try {
       const subsRes = await apiFetch("/api/subscriptions");
       if (subsRes.ok) {
@@ -1201,7 +1201,7 @@ export default function App() {
     } catch (err) {
       console.error("Failed to sync Plaid:", err);
     } finally {
-      setIsSyncing(false);
+      if (!silent) setIsSyncing(false);
     }
   };
 
