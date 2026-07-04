@@ -41,7 +41,8 @@ import {
   Moon,
   Share2,
   Copy,
-  Webhook
+  Webhook,
+  Terminal
 } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { motion, AnimatePresence } from "motion/react";
@@ -459,7 +460,7 @@ export default function App() {
   const [sortBy, setSortBy] = useState<"name" | "amount" | "renewal">("name");
   const [alertActive, setAlertActive] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "vrp" | "logs" | "config" | "login" |
+    "dashboard" | "vrp" | "logs" | "config" | "login" | "admin" |
     "darkPatterns" | "complianceAudit" | "regulatoryTracker" | 
     "costCalculator" | "flowComparison" | "inertiaProfiler" | 
     "consentLog" | "researchData" | "privacyPolicy"
@@ -1205,15 +1206,26 @@ export default function App() {
   };
 
   const getSpendingTrendsData = () => {
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const currentDate = new Date();
+    
+    const dynamicMonths: string[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+      const mName = monthNames[d.getMonth()];
+      const yName = d.getFullYear().toString().slice(-2);
+      const label = `${mName} ${yName}${i === 0 ? " (Current)" : ""}`;
+      dynamicMonths.push(label);
+    }
+
     if (subscriptions.length === 0) {
-      return [
-        { month: "Jan 26", "Total Spending": 0, "Core Subscriptions": 0, "Spikes / Adds": 0, "Previous Period Spending": 0 },
-        { month: "Feb 26", "Total Spending": 0, "Core Subscriptions": 0, "Spikes / Adds": 0, "Previous Period Spending": 0 },
-        { month: "Mar 26", "Total Spending": 0, "Core Subscriptions": 0, "Spikes / Adds": 0, "Previous Period Spending": 0 },
-        { month: "Apr 26", "Total Spending": 0, "Core Subscriptions": 0, "Spikes / Adds": 0, "Previous Period Spending": 0 },
-        { month: "May 26", "Total Spending": 0, "Core Subscriptions": 0, "Spikes / Adds": 0, "Previous Period Spending": 0 },
-        { month: "Jun 26 (Current)", "Total Spending": 0, "Core Subscriptions": 0, "Spikes / Adds": 0, "Previous Period Spending": 0 }
-      ];
+      return dynamicMonths.map(month => ({
+        month,
+        "Total Spending": 0,
+        "Core Subscriptions": 0,
+        "Spikes / Adds": 0,
+        "Previous Period Spending": 0
+      }));
     }
 
     const activeSubs = subscriptions.filter(s => s.status !== "cancelled" && s.status !== "revoked");
@@ -1229,12 +1241,12 @@ export default function App() {
 
     // To simulate realistic history based on current subscriptions
     return [
-      { month: "Jan 26", "Total Spending": Number((currentCore * 0.9).toFixed(2)), "Core Subscriptions": Number((currentCore * 0.9).toFixed(2)), "Spikes / Adds": 0, "Previous Period Spending": Number((currentCore * 0.8).toFixed(2)) },
-      { month: "Feb 26", "Total Spending": Number((currentCore * 0.95).toFixed(2)), "Core Subscriptions": Number((currentCore * 0.95).toFixed(2)), "Spikes / Adds": 0, "Previous Period Spending": Number((currentCore * 0.85).toFixed(2)) },
-      { month: "Mar 26", "Total Spending": Number((currentTotal * 0.95).toFixed(2)), "Core Subscriptions": Number((currentCore * 0.95).toFixed(2)), "Spikes / Adds": Number((currentSpikes * 0.95).toFixed(2)), "Previous Period Spending": Number((currentCore * 0.85).toFixed(2)) },
-      { month: "Apr 26", "Total Spending": Number((currentTotal * 0.98).toFixed(2)), "Core Subscriptions": Number((currentCore * 0.98).toFixed(2)), "Spikes / Adds": Number((currentSpikes * 0.98).toFixed(2)), "Previous Period Spending": Number((currentCore * 0.9).toFixed(2)) },
-      { month: "May 26", "Total Spending": Number(currentTotal.toFixed(2)), "Core Subscriptions": Number(currentCore.toFixed(2)), "Spikes / Adds": Number(currentSpikes.toFixed(2)), "Previous Period Spending": Number((currentCore * 0.9).toFixed(2)) },
-      { month: "Jun 26 (Current)", "Total Spending": currentTotal, "Core Subscriptions": currentCore, "Spikes / Adds": currentSpikes, "Previous Period Spending": Number((currentCore * 0.92).toFixed(2)) }
+      { month: dynamicMonths[0], "Total Spending": Number((currentCore * 0.9).toFixed(2)), "Core Subscriptions": Number((currentCore * 0.9).toFixed(2)), "Spikes / Adds": 0, "Previous Period Spending": Number((currentCore * 0.8).toFixed(2)) },
+      { month: dynamicMonths[1], "Total Spending": Number((currentCore * 0.95).toFixed(2)), "Core Subscriptions": Number((currentCore * 0.95).toFixed(2)), "Spikes / Adds": 0, "Previous Period Spending": Number((currentCore * 0.85).toFixed(2)) },
+      { month: dynamicMonths[2], "Total Spending": Number((currentTotal * 0.95).toFixed(2)), "Core Subscriptions": Number((currentCore * 0.95).toFixed(2)), "Spikes / Adds": Number((currentSpikes * 0.95).toFixed(2)), "Previous Period Spending": Number((currentCore * 0.85).toFixed(2)) },
+      { month: dynamicMonths[3], "Total Spending": Number((currentTotal * 0.98).toFixed(2)), "Core Subscriptions": Number((currentCore * 0.98).toFixed(2)), "Spikes / Adds": Number((currentSpikes * 0.98).toFixed(2)), "Previous Period Spending": Number((currentCore * 0.9).toFixed(2)) },
+      { month: dynamicMonths[4], "Total Spending": Number(currentTotal.toFixed(2)), "Core Subscriptions": Number(currentCore.toFixed(2)), "Spikes / Adds": Number(currentSpikes.toFixed(2)), "Previous Period Spending": Number((currentCore * 0.9).toFixed(2)) },
+      { month: dynamicMonths[5], "Total Spending": currentTotal, "Core Subscriptions": currentCore, "Spikes / Adds": currentSpikes, "Previous Period Spending": Number((currentCore * 0.92).toFixed(2)) }
     ];
   };
 
@@ -1636,7 +1648,7 @@ export default function App() {
           >
             <div className="flex items-center gap-2.5">
               <User className="w-4 h-4 shrink-0" />
-              <span>{isLoggedIn ? "Login (Profile)" : "Login"}</span>
+              <span>{isLoggedIn ? "Signup and Login (Profile)" : "Signup and Login"}</span>
             </div>
             {isLoggedIn ? (
               <span className="bg-emerald-100 text-emerald-800 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full border border-emerald-200">
@@ -1807,98 +1819,6 @@ export default function App() {
             </div>
             <ChevronRight className="w-3.5 h-3.5 opacity-40" />
           </button>
-
-          {/* SIMULATION PANEL */}
-          <div className="mt-8 pt-6 border-t border-[#475569]/10 flex flex-col gap-4">
-            <p className="text-[10px] font-bold tracking-wider text-[#475569] px-2.5 uppercase">
-              Simulation Controls
-            </p>
-
-            {/* Email preference Toggle */}
-            <div className="mx-2.5 p-3.5 bg-[#F9FAFB] rounded-lg border border-[#475569]/15 flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-[#0F172A] flex items-center gap-1.5">
-                  <Mail className="w-3.5 h-3.5 text-[#475569]" />
-                  Email Warning Digest
-                </span>
-                <input 
-                  type="checkbox" 
-                  checked={emailPreferences}
-                  onChange={(e) => setEmailPreferences(e.target.checked)}
-                  className="w-4 h-4 accent-[#0F172A] cursor-pointer"
-                  id="email-toggle"
-                />
-              </div>
-              <label htmlFor="email-toggle" className="text-[10px] text-[#475569] leading-tight cursor-pointer">
-                Auto-simulate warnings to <strong className="font-bold text-[#0F172A]">{isLoggedIn && authEmail ? authEmail : "your registered email"}</strong> on subscription updates.
-              </label>
-            </div>
-
-            {/* n8n Webhook Settings Toggle & Input */}
-            <div className="mx-2.5 p-3.5 bg-[#F9FAFB] rounded-lg border border-[#475569]/15 flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-[#0F172A] flex items-center gap-1.5">
-                  <Webhook className="w-3.5 h-3.5 text-indigo-600" />
-                  n8n Webhook Integration
-                </span>
-                <input 
-                  type="checkbox" 
-                  checked={isWebhookEnabled}
-                  onChange={(e) => setIsWebhookEnabled(e.target.checked)}
-                  className="w-4 h-4 accent-indigo-600 cursor-pointer"
-                  id="webhook-toggle"
-                />
-              </div>
-              <div className="space-y-1">
-                <label htmlFor="webhook-url-input" className="text-[9px] text-[#475569] font-bold uppercase tracking-wider block">
-                  Outbound Webhook URL
-                </label>
-                <div className="flex gap-1.5">
-                  <input
-                    type="text"
-                    id="webhook-url-input"
-                    value={webhookUrl}
-                    onChange={(e) => setWebhookUrl(e.target.value)}
-                    placeholder="https://..."
-                    className="flex-1 bg-white border border-slate-300 rounded px-2 py-1 text-[10px] font-mono text-[#0F172A] focus:outline-none focus:border-indigo-600"
-                  />
-                  <button
-                    onClick={testWebhook}
-                    className="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[9px] font-bold uppercase tracking-wider rounded font-mono transition-all cursor-pointer whitespace-nowrap"
-                  >
-                    Test
-                  </button>
-                </div>
-                {webhookTestStatus && (
-                  <span className={`block text-[9px] font-mono mt-1 ${webhookTestStatus.startsWith("Success") ? "text-emerald-600" : "text-amber-600"}`}>
-                    {webhookTestStatus}
-                  </span>
-                )}
-              </div>
-              <p className="text-[9.5px] text-[#475569] leading-tight">
-                Outbound POST request fired upon individual or bulk subscription revocation and cancellation.
-              </p>
-            </div>
-
-            <div className="px-2.5 flex flex-col gap-2">
-              <button
-                onClick={handleSimulateDiscovery}
-                disabled={isSyncing}
-                className="w-full py-2.5 bg-white border border-[#475569] hover:bg-slate-50 text-[#0F172A] text-[11px] font-bold rounded-lg uppercase tracking-wider transition-all duration-150 shadow-sm flex items-center justify-center gap-2"
-              >
-                <Sparkles className="w-3.5 h-3.5 shrink-0" />
-                Simulate New Plaid Detect
-              </button>
-
-              <button
-                onClick={handleTriggerWarningDigest}
-                className="w-full py-2.5 bg-white border border-[#475569] hover:bg-slate-50 text-[#0F172A] text-[11px] font-bold rounded-lg uppercase tracking-wider transition-all duration-150 shadow-sm flex items-center justify-center gap-2"
-              >
-                <Send className="w-3.5 h-3.5 shrink-0" />
-                Dispatch Email Warnings
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* Sidebar Status Info */}
@@ -1964,8 +1884,8 @@ export default function App() {
               )}
               {activeTab === "login" && (
                 <>
-                  <span className="hidden lg:inline">SECURE LOGIN & USER ACCOUNT PORTAL</span>
-                  <span className="lg:hidden">LOGIN PORTAL</span>
+                  <span className="hidden lg:inline">SECURE SIGNUP & LOGIN PORTAL</span>
+                  <span className="lg:hidden">SIGNUP & LOGIN PORTAL</span>
                 </>
               )}
               {activeTab === "darkPatterns" && (
@@ -3771,7 +3691,7 @@ export default function App() {
                     <div className="flex items-center gap-3 border-b border-[#475569]/10 pb-4">
                       <User className="w-5 h-5 text-[#0F172A]" />
                       <div>
-                        <h2 className="text-lg font-black text-[#0F172A] uppercase tracking-tight">Account Portal</h2>
+                        <h2 className="text-lg font-black text-[#0F172A] uppercase tracking-tight">Signup & Login Portal</h2>
                         <p className="text-xs text-[#475569]">Manage secure cryptographic access credentials & subscriptions</p>
                       </div>
                     </div>
