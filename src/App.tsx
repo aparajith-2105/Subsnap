@@ -63,6 +63,7 @@ import { Subscription, AuditLog, PlaidConfig, SystemNotification } from "./types
 import MerchantLogo from "./components/MerchantLogo";
 import { SUPPORTED_CURRENCIES, getCurrencySymbol, formatCurrency, convertCurrency, formatNotificationMessage } from "./currencyUtils";
 import { useWebSocket } from "./useWebSocket";
+import { googleSignIn, logout as googleLogout, initAuth, getAccessToken } from "./firebase";
 
 const PIE_COLORS = ["#0F172A", "#6366F1", "#10B981", "#EF4444", "#F59E0B", "#06B6D4", "#F43F5E"];
 
@@ -114,6 +115,23 @@ export default function App() {
   const [authName, setAuthName] = useState<string>("");
   const [userName, setUserName] = useState<string>("");
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
+  const [isGoogleAuthLoading, setIsGoogleAuthLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    const unsubscribe = initAuth(
+      (user, token) => {
+        setIsLoggedIn(true);
+        setAuthEmail(user.email || "");
+        setUserName(user.displayName || "Sathya Rammalu");
+        setGoogleAccessToken(token);
+      },
+      () => {
+        // Fall back gracefully if not active Google session
+      }
+    );
+    return () => unsubscribe();
+  }, []);
 
   // New features states
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
@@ -548,6 +566,8 @@ export default function App() {
     setActiveTab("config");
     setOnboardingOption("none");
     setMobileShowContent(false);
+    setGoogleAccessToken(null);
+    googleLogout();
   };
 
   const [termsAccepted, setTermsAccepted] = useState<boolean>(false);
@@ -740,6 +760,17 @@ export default function App() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (subscriptions.length > 0) {
+      const exists = subscriptions.some(s => s.id === selectedSubId);
+      if (!exists) {
+        setSelectedSubId(subscriptions[0].id);
+      }
+    } else {
+      setSelectedSubId("");
+    }
+  }, [subscriptions, selectedSubId]);
 
   // Action Handlers
   const handleKeep = async (id: string) => {
@@ -957,6 +988,45 @@ export default function App() {
       setIsLoggedIn(true);
       setUserName(authEmail.split("@")[0] || "User");
       setAuthMessage({ type: "success", text: `Welcome back! authorized.` });
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsGoogleAuthLoading(true);
+    setAuthMessage(null);
+    try {
+      const result = await googleSignIn();
+      if (result) {
+        setIsLoggedIn(true);
+        setAuthEmail(result.user.email || "");
+        setUserName(result.user.displayName || "Sathya Rammalu");
+        setGoogleAccessToken(result.accessToken);
+        setAuthMessage({ 
+          type: "success", 
+          text: `Successfully authenticated as ${result.user.email}. Real Google Workspace Gmail notifications are now enabled!` 
+        });
+        
+        await apiFetch("/api/notifications/simulate-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            email: result.user.email,
+            isRealGmail: true,
+            subject: "OAuth Link Established",
+            details: `Secure Google OAuth link established with Gmail permissions for ${result.user.email}.`
+          })
+        });
+        const updatedLogs = await apiFetch("/api/logs").then(r => r.json());
+        setLogs(updatedLogs);
+      }
+    } catch (err: any) {
+      console.error("Google Sign-In failed:", err);
+      setAuthMessage({ 
+        type: "error", 
+        text: err.message || "Google Sign-In failed. Please try again." 
+      });
+    } finally {
+      setIsGoogleAuthLoading(false);
     }
   };
 
@@ -1454,14 +1524,108 @@ export default function App() {
     }
   };
 
-  // Helper to trigger interactive HTML email mock delivery
+  const buildSubSnapEmailHtml = (subject: string, messageBody: string) => {
+    return `
+      <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f9fafb; padding: 40px 20px; color: #0f172a;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+          
+          <!-- Header -->
+          <div style="background-color: #0f172a; padding: 30px; text-align: center;">
+            <h1 style="color: #ffffff; font-size: 24px; font-weight: 800; margin: 0; letter-spacing: -0.025em; text-transform: uppercase;">SUBSNAP</h1>
+            <p style="color: #94a3b8; font-size: 12px; margin: 5px 0 0 0; text-transform: uppercase; tracking-wider; font-family: monospace;">SOVEREIGN ACTIVE CONSENT COMPLIANCE ENGINE</p>
+          </div>
+
+          <!-- Content -->
+          <div style="padding: 40px 30px;">
+            <h2 style="font-size: 18px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: #0f172a;">${subject}</h2>
+            
+            <div style="background-color: #f3f4f6; border-left: 4px solid #10b981; padding: 20px; border-radius: 0 8px 8px 0; margin-bottom: 30px;">
+              <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #374151; font-family: monospace;">
+                ${messageBody}
+              </p>
+            </div>
+
+            <p style="font-size: 13px; line-height: 1.5; color: #475569; margin-bottom: 25px;">
+              This email was dispatched automatically via the secure SubSnap compliance engine in response to an identified recurring subscription event or direct request.
+            </p>
+
+            <a href="https://ais-dev-sqqql7glml7haio36uzn7v-344917494583.asia-southeast1.run.app" style="display: inline-block; padding: 12px 24px; background-color: #10b981; color: #0f172a; text-decoration: none; font-weight: bold; border-radius: 6px; font-size: 13px; text-transform: uppercase; tracking-wider;">
+              Access Dashboard
+            </a>
+          </div>
+
+          <!-- Footer -->
+          <div style="background-color: #f9fafb; border-top: 1px solid #e5e7eb; padding: 20px 30px; text-align: center;">
+            <p style="font-size: 11px; color: #64748b; margin: 0;">
+              SubSnap &bull; FTC Negative-Option Guardrails &bull; Sovereign User Autonomy
+            </p>
+            <p style="font-size: 10px; color: #94a3b8; margin: 5px 0 0 0;">
+              Secure session tracking via Plaid & Variable Recurring Payments (VRP).
+            </p>
+          </div>
+
+        </div>
+      </div>
+    `;
+  };
+
+  // Helper to trigger interactive HTML email mock or real Google Workspace delivery
   const triggerEmailSimulation = async (subject: string, messageBody: string) => {
-    const targetEmail = isLoggedIn && authEmail ? authEmail : "sathya.rammalu@gmail.com";
+    const targetEmail = isLoggedIn && authEmail ? authEmail : "abc@gmail.com";
+    let isRealGmail = false;
+    let details = "";
+
     try {
+      if (googleAccessToken) {
+        try {
+          const emailHtml = buildSubSnapEmailHtml(`[SubSnap Alert] ${subject}`, messageBody);
+          // Construct raw MIME mail
+          const emailLines = [
+            `To: ${targetEmail}`,
+            "Content-Type: text/html; charset=utf-8",
+            "MIME-Version: 1.0",
+            `Subject: [SubSnap Alert] ${subject}`,
+            "",
+            emailHtml
+          ];
+          const emailStr = emailLines.join("\r\n");
+          // Safe base64 encoding
+          const base64 = btoa(unescape(encodeURIComponent(emailStr)));
+          const rawBase64Url = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+          const res = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${googleAccessToken}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ raw: rawBase64Url })
+          });
+
+          if (res.ok) {
+            isRealGmail = true;
+            details = `Dispatched actual Google Workspace Gmail to ${targetEmail} via authenticated OAuth session: "[SubSnap Alert] ${subject}".`;
+            console.log("Real Gmail sent successfully!");
+          } else {
+            const errResponse = await res.text();
+            console.error("Gmail API failed. Falling back to mock simulation.", errResponse);
+            details = `Failed to dispatch real Gmail (API error). Simulated warning digest delivered to ${targetEmail}.`;
+          }
+        } catch (gmailErr) {
+          console.error("Error during real Gmail sending process:", gmailErr);
+          details = `Failed to dispatch real Gmail (Network error). Simulated warning digest delivered to ${targetEmail}.`;
+        }
+      }
+
       await apiFetch("/api/notifications/simulate-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: targetEmail })
+        body: JSON.stringify({ 
+          email: targetEmail, 
+          isRealGmail, 
+          subject: `[SubSnap Alert] ${subject}`,
+          details: details || `Sent deep-compliance warning digest to ${targetEmail} containing 3 pending risk summaries.`
+        })
       });
       
       const updatedLogs = await apiFetch("/api/logs").then(r => r.json());
@@ -3765,6 +3929,28 @@ export default function App() {
                             {authState === "signup" ? "Create Secure Account" : (authState === "reset" ? "Reset Security Password" : "Access Console")}
                           </button>
 
+                          <div className="flex items-center my-3.5">
+                            <div className="flex-1 border-t border-slate-800"></div>
+                            <span className="px-3 text-[10px] text-slate-500 font-mono">OR</span>
+                            <div className="flex-1 border-t border-slate-800"></div>
+                          </div>
+
+                          <button 
+                            type="button"
+                            onClick={handleGoogleSignIn}
+                            disabled={isGoogleAuthLoading}
+                            className="w-full py-2.5 bg-white text-slate-800 hover:bg-slate-50 border border-slate-300 rounded font-medium text-xs flex items-center justify-center gap-2.5 cursor-pointer shadow-sm active:scale-[0.99] transition-transform"
+                          >
+                            <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-5 h-5 shrink-0 block">
+                              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
+                              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
+                              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
+                              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
+                              <path fill="none" d="M0 0h48v48H0z"></path>
+                            </svg>
+                            <span>{isGoogleAuthLoading ? "Connecting..." : "Sign in with Google"}</span>
+                          </button>
+
                           {authMessage && (
                             <div className={`p-3 rounded text-[11px] font-mono border ${
                               authMessage.type === "success" 
@@ -3826,10 +4012,34 @@ export default function App() {
                               <span className="font-bold text-white font-mono">{authEmail || "N/A"}</span>
                             </div>
                             <div className="flex justify-between">
+                              <span className="text-slate-400">Google Workspace:</span>
+                              <span className={`font-bold font-mono ${googleAccessToken ? "text-emerald-400" : "text-amber-400"}`}>
+                                {googleAccessToken ? "CONNECTED (REAL GMAIL)" : "NOT CONNECTED (SIMULATED)"}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
                               <span className="text-slate-400">Regulatory Clearance:</span>
                               <span className="font-bold text-emerald-400 font-mono">FTC PASSED</span>
                             </div>
                           </div>
+
+                          {!googleAccessToken && (
+                            <button
+                              type="button"
+                              onClick={handleGoogleSignIn}
+                              disabled={isGoogleAuthLoading}
+                              className="w-full py-2 bg-white text-slate-800 hover:bg-slate-50 border border-slate-300 rounded font-bold text-[10px] uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-transform active:scale-[0.98]"
+                            >
+                              <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-4 h-4 shrink-0 block">
+                                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
+                                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
+                                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
+                                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
+                                <path fill="none" d="M0 0h48v48H0z"></path>
+                              </svg>
+                              <span>{isGoogleAuthLoading ? "Connecting..." : "Enable Real Gmail Alerts"}</span>
+                            </button>
+                          )}
                         </div>
 
                         {/* PASSWORD RESET SUB-FORM */}
