@@ -19,6 +19,9 @@ provider.addScope("https://www.googleapis.com/auth/gmail.send");
 
 let isSigningIn = false;
 let cachedAccessToken: string | null = null;
+try {
+  cachedAccessToken = typeof window !== "undefined" ? localStorage.getItem("subsnap_google_access_token") : null;
+} catch (e) {}
 
 export const initAuth = (
   onAuthSuccess?: (user: User, token: string) => void,
@@ -26,6 +29,11 @@ export const initAuth = (
 ) => {
   return onAuthStateChanged(auth, async (user: User | null) => {
     if (user) {
+      if (!cachedAccessToken) {
+        try {
+          cachedAccessToken = localStorage.getItem("subsnap_google_access_token");
+        } catch (e) {}
+      }
       if (cachedAccessToken) {
         if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
       } else if (!isSigningIn) {
@@ -34,6 +42,9 @@ export const initAuth = (
       }
     } else {
       cachedAccessToken = null;
+      try {
+        localStorage.removeItem("subsnap_google_access_token");
+      } catch (e) {}
       if (onAuthFailure) onAuthFailure();
     }
   });
@@ -49,6 +60,9 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
     }
 
     cachedAccessToken = credential.accessToken;
+    try {
+      localStorage.setItem("subsnap_google_access_token", cachedAccessToken);
+    } catch (e) {}
     return { user: result.user, accessToken: cachedAccessToken };
   } catch (error: any) {
     console.error("Sign in error:", error);
@@ -59,10 +73,18 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
 };
 
 export const getAccessToken = async (): Promise<string | null> => {
+  if (!cachedAccessToken) {
+    try {
+      cachedAccessToken = localStorage.getItem("subsnap_google_access_token");
+    } catch (e) {}
+  }
   return cachedAccessToken;
 };
 
 export const logout = async () => {
   await auth.signOut();
   cachedAccessToken = null;
+  try {
+    localStorage.removeItem("subsnap_google_access_token");
+  } catch (e) {}
 };

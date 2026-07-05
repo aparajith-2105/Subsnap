@@ -115,7 +115,13 @@ export default function App() {
   const [authName, setAuthName] = useState<string>("");
   const [userName, setUserName] = useState<string>("");
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
-  const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
+  const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem("subsnap_google_access_token");
+    } catch (e) {
+      return null;
+    }
+  });
   const [isGoogleAuthLoading, setIsGoogleAuthLoading] = useState<boolean>(false);
 
   const mergeGuestData = useCallback(async (targetEmail: string) => {
