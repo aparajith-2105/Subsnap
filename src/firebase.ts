@@ -81,6 +81,18 @@ export const getAccessToken = async (): Promise<string | null> => {
   return cachedAccessToken;
 };
 
+export const getFirebaseIdToken = async (): Promise<string | null> => {
+  const user = auth.currentUser;
+  if (user) {
+    try {
+      return await user.getIdToken();
+    } catch (e) {
+      console.error("Error getting user ID token:", e);
+    }
+  }
+  return null;
+};
+
 export const logout = async () => {
   await auth.signOut();
   cachedAccessToken = null;

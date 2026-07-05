@@ -3,6 +3,7 @@
   "appId": "1:172764259739:web:2588848ad2c867d3092d3e",
   "apiKey": "AIzaSyAKCPUOAsN2glPt48h4DH2S3E0OdE3ET9Q",
   "authDomain": "spheric-temple-4gtt6.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-subsnap-998f97ce-1cad-4587-ae9e-4aec2b3c2a8b",
   "storageBucket": "spheric-temple-4gtt6.firebasestorage.app",
   "messagingSenderId": "172764259739",
   "measurementId": ""

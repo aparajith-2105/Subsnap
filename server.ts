@@ -192,13 +192,20 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 2
   }
 }
 
-async function saveUserStateToFirestore(email: string, state: UserState) {
+async function saveUserStateToFirestore(email: string, state: UserState, idToken?: string | null) {
   if (!firebaseConfig || !firebaseConfig.projectId || !firebaseConfig.apiKey) return;
   const key = email ? (typeof email === "string" ? email.toLowerCase().trim() : "guest") : "guest";
   
+  // Never attempt to write guest state to the cloud
+  if (key === "guest") {
+    console.log("[Firestore REST] Bypassing cloud save for guest user.");
+    return;
+  }
+  
   const projectId = firebaseConfig.projectId;
   const apiKey = firebaseConfig.apiKey;
-  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/user_states/${key}?updateMask.fieldPaths=stateJson&key=${apiKey}`;
+  const databaseId = firebaseConfig.firestoreDatabaseId || "(default)";
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents/user_states/${key}?updateMask.fieldPaths=stateJson&key=${apiKey}`;
   
   const body = {
     fields: {
@@ -208,10 +215,15 @@ async function saveUserStateToFirestore(email: string, state: UserState) {
     }
   };
 
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (idToken) {
+    headers["Authorization"] = `Bearer ${idToken}`;
+  }
+
   try {
     const res = await fetchWithTimeout(url, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(body)
     }, 2000);
 
@@ -226,7 +238,7 @@ async function saveUserStateToFirestore(email: string, state: UserState) {
   }
 }
 
-async function getUserStateFromFirestore(email?: string): Promise<UserState> {
+async function getUserStateFromFirestore(email?: string, idToken?: string | null): Promise<UserState> {
   const key = email ? (typeof email === "string" ? email.toLowerCase().trim() : "guest") : "guest";
   
   // Return cached in-memory state if present
@@ -236,13 +248,19 @@ async function getUserStateFromFirestore(email?: string): Promise<UserState> {
 
   let state: UserState | null = null;
 
-  if (firebaseConfig && firebaseConfig.projectId && firebaseConfig.apiKey) {
+  if (key !== "guest" && firebaseConfig && firebaseConfig.projectId && firebaseConfig.apiKey) {
     const projectId = firebaseConfig.projectId;
     const apiKey = firebaseConfig.apiKey;
-    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/user_states/${key}?key=${apiKey}`;
+    const databaseId = firebaseConfig.firestoreDatabaseId || "(default)";
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents/user_states/${key}?key=${apiKey}`;
     
+    const headers: Record<string, string> = {};
+    if (idToken) {
+      headers["Authorization"] = `Bearer ${idToken}`;
+    }
+
     try {
-      const res = await fetchWithTimeout(url, { method: "GET" }, 2000);
+      const res = await fetchWithTimeout(url, { method: "GET", headers }, 2000);
       if (res.ok) {
         const data = await res.json();
         const stateJson = data?.fields?.stateJson?.stringValue;
@@ -290,7 +308,12 @@ function getUserState(email?: string): UserState {
 app.use(async (req: any, res, next) => {
   const email = (req.headers["x-user-email"] as string) || "guest";
   req.userEmail = email;
-  req.userState = await getUserStateFromFirestore(email);
+
+  const authHeader = req.headers["authorization"];
+  const idToken = authHeader && authHeader.startsWith("Bearer ") ? authHeader.substring(7) : null;
+  req.firebaseIdToken = idToken;
+
+  req.userState = await getUserStateFromFirestore(email, idToken);
 
   // Set up response interception to automatically save state at the end of the request
   const initialJson = JSON.stringify(req.userState);
@@ -305,7 +328,7 @@ app.use(async (req: any, res, next) => {
       const currentJson = JSON.stringify(req.userState);
       if (currentJson !== initialJson) {
         // Run in background (fire-and-forget), never block the response!
-        saveUserStateToFirestore(req.userEmail, req.userState).catch(err => {
+        saveUserStateToFirestore(req.userEmail, req.userState, req.firebaseIdToken).catch(err => {
           console.error("[Autosave Background Error]", err);
         });
       }
@@ -369,8 +392,8 @@ app.post("/api/auth/merge-guest", async (req, res) => {
   guestState.subscriptions = [];
   
   // Explicitly persist both guest and merged user states to Firestore
-  await saveUserStateToFirestore(guestEmail, guestState);
-  await saveUserStateToFirestore(targetEmail, userState);
+  await saveUserStateToFirestore(guestEmail, guestState, (req as any).firebaseIdToken);
+  await saveUserStateToFirestore(targetEmail, userState, (req as any).firebaseIdToken);
 
   res.json({ success: true, mergedCount });
 });

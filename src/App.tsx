@@ -63,7 +63,7 @@ import { Subscription, AuditLog, PlaidConfig, SystemNotification } from "./types
 import MerchantLogo from "./components/MerchantLogo";
 import { SUPPORTED_CURRENCIES, getCurrencySymbol, formatCurrency, convertCurrency, formatNotificationMessage } from "./currencyUtils";
 import { useWebSocket } from "./useWebSocket";
-import { googleSignIn, logout as googleLogout, initAuth, getAccessToken } from "./firebase";
+import { googleSignIn, logout as googleLogout, initAuth, getAccessToken, getFirebaseIdToken } from "./firebase";
 
 const PIE_COLORS = ["#0F172A", "#6366F1", "#10B981", "#EF4444", "#F59E0B", "#06B6D4", "#F43F5E"];
 
@@ -429,6 +429,14 @@ export default function App() {
       }
     }
     headers.set("x-user-email", authEmailRef.current || "guest");
+    try {
+      const idToken = await getFirebaseIdToken();
+      if (idToken) {
+        headers.set("Authorization", `Bearer ${idToken}`);
+      }
+    } catch (e) {
+      console.error("Error setting Authorization header:", e);
+    }
     return fetch(input, {
       ...targetInit,
       headers,
@@ -1662,7 +1670,14 @@ export default function App() {
           } else {
             const errResponse = await res.text();
             console.error("Gmail API failed. Falling back to mock simulation.", errResponse);
-            details = `Failed to dispatch real Gmail (API error). Simulated warning digest delivered to ${targetEmail}.`;
+            if (res.status === 401) {
+              console.warn("Gmail token expired/unauthorized. Resetting token so user can re-login.");
+              setGoogleAccessToken(null);
+              try {
+                localStorage.removeItem("subsnap_google_access_token");
+              } catch (e) {}
+            }
+            details = `Failed to dispatch real Gmail (API error/Session expired). Simulated warning digest delivered to ${targetEmail}.`;
           }
         } catch (gmailErr) {
           console.error("Error during real Gmail sending process:", gmailErr);
