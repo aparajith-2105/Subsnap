@@ -6,6 +6,9 @@ import { Subscription, AuditLog, SystemNotification } from "./src/types";
 import { GoogleGenAI, Type } from "@google/genai";
 import http from "http";
 import { WebSocketServer, WebSocket } from "ws";
+import fs from "fs";
+import { initializeApp } from "firebase/app";
+import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
 
 // Fix Node.js resolving localhost to IPv6 in some environments
 dns.setDefaultResultOrder("ipv4first");
@@ -165,6 +168,80 @@ function getInitialPlaidConfig() {
   };
 }
 
+// Initialize Firestore
+let db: any = null;
+try {
+  const firebaseConfigPath = path.join(process.cwd(), "firebase-applet-config.json");
+  if (fs.existsSync(firebaseConfigPath)) {
+    const firebaseConfig = JSON.parse(fs.readFileSync(firebaseConfigPath, "utf-8"));
+    const firebaseApp = initializeApp(firebaseConfig);
+    db = getFirestore(firebaseApp);
+    console.log("[Firestore] Successfully initialized connection.");
+  } else {
+    console.warn("[Firestore] firebase-applet-config.json not found. Falling back to in-memory mode.");
+  }
+} catch (err) {
+  console.error("[Firestore] Failed to initialize:", err);
+}
+
+async function saveUserStateToFirestore(email: string, state: UserState) {
+  if (!db) return;
+  const key = email ? (typeof email === "string" ? email.toLowerCase().trim() : "guest") : "guest";
+  try {
+    await setDoc(doc(db, "user_states", key), {
+      subscriptions: state.subscriptions || [],
+      logs: state.logs || [],
+      notifications: state.notifications || [],
+      plaidConfig: state.plaidConfig || getInitialPlaidConfig(),
+    });
+    console.log(`[Firestore] Successfully saved state for user: ${key}`);
+  } catch (err) {
+    console.error(`[Firestore] Error saving state for user: ${key}`, err);
+  }
+}
+
+async function getUserStateFromFirestore(email?: string): Promise<UserState> {
+  const key = email ? (typeof email === "string" ? email.toLowerCase().trim() : "guest") : "guest";
+  
+  // Check in-memory map first for caching
+  if (userStates.has(key)) {
+    return userStates.get(key)!;
+  }
+
+  let state: UserState | null = null;
+  if (db) {
+    try {
+      const docRef = doc(db, "user_states", key);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data() as any;
+        state = {
+          subscriptions: data.subscriptions || [],
+          logs: data.logs || [],
+          notifications: data.notifications || [],
+          plaidConfig: data.plaidConfig || getInitialPlaidConfig(),
+        };
+        console.log(`[Firestore] Loaded existing state for user: ${key}`);
+      }
+    } catch (err) {
+      console.error(`[Firestore] Error loading state for user: ${key}`, err);
+    }
+  }
+
+  if (!state) {
+    // Default initial state
+    state = {
+      subscriptions: getInitialSubscriptions(),
+      logs: getInitialLogs(),
+      notifications: getInitialNotifications(),
+      plaidConfig: getInitialPlaidConfig(),
+    };
+  }
+
+  userStates.set(key, state);
+  return state;
+}
+
 function getUserState(email?: string): UserState {
   const key = email ? (typeof email === "string" ? email.toLowerCase().trim() : "guest") : "guest";
   if (!userStates.has(key)) {
@@ -178,20 +255,59 @@ function getUserState(email?: string): UserState {
   return userStates.get(key)!;
 }
 
-app.use((req: any, res, next) => {
-  const email = req.headers["x-user-email"];
-  req.userState = getUserState(email);
+app.use(async (req: any, res, next) => {
+  const email = (req.headers["x-user-email"] as string) || "guest";
+  req.userEmail = email;
+  req.userState = await getUserStateFromFirestore(email);
+
+  // Set up response interception to automatically save state at the end of the request
+  const initialJson = JSON.stringify(req.userState);
+  const originalJson = res.json;
+  const originalSend = res.send;
+
+  let isSaved = false;
+  const saveIfNeeded = async () => {
+    if (isSaved) return;
+    isSaved = true;
+    if (req.userEmail && req.userState) {
+      const currentJson = JSON.stringify(req.userState);
+      if (currentJson !== initialJson) {
+        await saveUserStateToFirestore(req.userEmail, req.userState);
+      }
+    }
+  };
+
+  res.json = function (body) {
+    saveIfNeeded().then(() => {
+      originalJson.call(this, body);
+    }).catch((err) => {
+      console.error("Error autosaving userState:", err);
+      originalJson.call(this, body);
+    });
+    return this;
+  };
+
+  res.send = function (body) {
+    saveIfNeeded().then(() => {
+      originalSend.call(this, body);
+    }).catch((err) => {
+      console.error("Error autosaving userState:", err);
+      originalSend.call(this, body);
+    });
+    return this;
+  };
+
   next();
 });
 
-app.post("/api/auth/merge-guest", (req, res) => {
+app.post("/api/auth/merge-guest", async (req, res) => {
   const { guestEmail, targetEmail } = req.body;
   if (!guestEmail || !targetEmail) {
     return res.status(400).json({ error: "guestEmail and targetEmail are required." });
   }
 
-  const guestState = getUserState(guestEmail);
-  const userState = getUserState(targetEmail);
+  const guestState = await getUserStateFromFirestore(guestEmail);
+  const userState = await getUserStateFromFirestore(targetEmail);
 
   let mergedCount = 0;
   // Merge subscriptions
@@ -225,6 +341,10 @@ app.post("/api/auth/merge-guest", (req, res) => {
   // Clear guest state to avoid duplicate merges
   guestState.subscriptions = [];
   
+  // Explicitly persist both guest and merged user states to Firestore
+  await saveUserStateToFirestore(guestEmail, guestState);
+  await saveUserStateToFirestore(targetEmail, userState);
+
   res.json({ success: true, mergedCount });
 });
 
