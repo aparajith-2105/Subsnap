@@ -563,10 +563,13 @@ export default function App() {
     setAuthPassword("");
     setAuthName("");
     setAuthMessage(null);
-    setActiveTab("config");
+    setActiveTab("login");
     setOnboardingOption("none");
     setMobileShowContent(false);
     setGoogleAccessToken(null);
+    setSubscriptions([]);
+    setNotifications([]);
+    setLogs([]);
     googleLogout();
   };
 
@@ -759,7 +762,7 @@ export default function App() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [authEmail]);
 
   useEffect(() => {
     if (subscriptions.length > 0) {
@@ -1021,9 +1024,19 @@ export default function App() {
       }
     } catch (err: any) {
       console.error("Google Sign-In failed:", err);
+      let friendlyMessage = err.message || "Google Sign-In failed. Please try again.";
+      if (err.code === "auth/operation-not-allowed") {
+        friendlyMessage = "Google Sign-In is not enabled on this Firebase project yet. Please go to the Firebase Console -> Build -> Authentication -> Sign-in Method, and enable 'Google'.";
+      } else if (err.code === "auth/unauthorized-domain") {
+        friendlyMessage = "This domain is not authorized in Firebase Auth. Please add the app domain (ais-dev-sqqql7glml7haio36uzn7v-344917494583.asia-southeast1.run.app) to your Authorized Domains in the Firebase Console under Authentication -> Settings -> Authorized Domains.";
+      } else if (err.code === "auth/popup-blocked") {
+        friendlyMessage = "The browser blocked the sign-in popup. Please click again and allow popups, or open the app in a new tab.";
+      } else if (err.code) {
+        friendlyMessage = `Firebase error [${err.code}]: ${friendlyMessage}`;
+      }
       setAuthMessage({ 
         type: "error", 
-        text: err.message || "Google Sign-In failed. Please try again." 
+        text: friendlyMessage 
       });
     } finally {
       setIsGoogleAuthLoading(false);
@@ -2462,6 +2475,24 @@ export default function App() {
             <div className="flex-1 flex flex-col items-center justify-center py-20 gap-4">
               <RefreshCw className="w-8 h-8 text-[#0F172A] animate-spin" />
               <p className="text-[#475569] text-xs font-mono tracking-wider uppercase">Loading SubSnap Engine...</p>
+            </div>
+          ) : !isLoggedIn && ["dashboard", "vrp", "logs", "config", "consentLog"].includes(activeTab) ? (
+            <div className="max-w-md mx-auto w-full my-12 p-8 bg-white border border-slate-200 rounded-xl shadow-sm text-center space-y-6">
+              <div className="mx-auto w-12 h-12 bg-slate-50 border border-slate-200 rounded-full flex items-center justify-center text-slate-400">
+                <Shield className="w-6 h-6 text-slate-800" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">Security Authentication Required</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  This workspace contains private open-banking linkages, automated compliance records, and active negative-option guardrails. Please sign in or register to access this dashboard.
+                </p>
+              </div>
+              <button
+                onClick={() => setActiveTab("login")}
+                className="w-full py-2.5 bg-[#0F172A] hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider rounded transition-all cursor-pointer shadow-sm active:scale-[0.98]"
+              >
+                Access Sign In Portal
+              </button>
             </div>
           ) : (
             <>
