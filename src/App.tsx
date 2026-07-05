@@ -1,113 +1,27 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { 
   AlertTriangle, 
-  CheckCircle, 
-  XCircle, 
-  RefreshCw, 
-  Database, 
-  FileText, 
   Zap, 
-  ShieldAlert, 
-  Shield,
-  Sliders, 
-  Check, 
-  X, 
-  Settings, 
-  Info,
-  ExternalLink,
-  ChevronRight,
-  Bell,
-  Mail,
-  HelpCircle,
-  Clock,
-  Eye,
-  CheckCheck,
-  Send,
-  Sparkles,
-  TrendingUp,
-  Scale,
-  Calculator,
-  Brain,
-  BookOpen,
-  UploadCloud,
-  DownloadCloud,
-  PlusCircle,
-  ArrowLeft,
-  Calendar,
-  User,
-  DollarSign,
-  LogOut,
-  Sun,
-  Moon,
-  Share2,
-  Copy,
-  Webhook,
-  Terminal
+  Mail, 
+  Clock, 
+  PlusCircle, 
+  BookOpen, 
+  User, 
+  LogOut, 
+  Sun, 
+  Moon, 
+  Share2 
 } from "lucide-react";
-import { jsPDF } from "jspdf";
-import { motion, AnimatePresence } from "motion/react";
-import {
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  PieChart,
-  Pie,
-  Cell
-} from "recharts";
-import { Subscription, AuditLog, PlaidConfig, SystemNotification } from "./types";
-import MerchantLogo from "./components/MerchantLogo";
-import { SUPPORTED_CURRENCIES, getCurrencySymbol, formatCurrency, convertCurrency, formatNotificationMessage } from "./currencyUtils";
-import { useWebSocket } from "./useWebSocket";
-import { googleSignIn, logout as googleLogout, initAuth, getAccessToken, getFirebaseIdToken } from "./firebase";
-
-const PIE_COLORS = ["#0F172A", "#6366F1", "#10B981", "#EF4444", "#F59E0B", "#06B6D4", "#F43F5E"];
-
-import DarkPatternLibrary from "./components/DarkPatternLibrary";
-import ComplianceAuditTool from "./components/ComplianceAuditTool";
-import RegulatoryTracker from "./components/RegulatoryTracker";
-import LeakageCostCalculator from "./components/LeakageCostCalculator";
-import CancelFlowDemo from "./components/CancelFlowDemo";
-import InertiaProfiler from "./components/InertiaProfiler";
+import { Subscription, AuditLog, SystemNotification } from "./types";
+import { SUPPORTED_CURRENCIES } from "./currencyUtils";
+import { googleLogout, initAuth } from "./firebase";
 import ConsentLog from "./components/ConsentLog";
-import ResearchShowcase from "./components/ResearchShowcase";
-import PrivacyPolicy from "./components/PrivacyPolicy";
-
-function DescriptiveTooltip({ text, children, position = "top", className = "inline-block" }: { text: string; children: React.ReactNode; position?: "top" | "bottom" | "left" | "right"; className?: string }) {
-  const positionClasses = {
-    top: "bottom-full left-1/2 -translate-x-1/2 mb-2",
-    bottom: "top-full left-1/2 -translate-x-1/2 mt-2",
-    left: "right-full top-1/2 -translate-y-1/2 mr-2",
-    right: "left-full top-1/2 -translate-y-1/2 ml-2"
-  };
-
-  const arrowClasses = {
-    top: "top-full left-1/2 -translate-x-1/2 border-t-slate-900",
-    bottom: "bottom-full left-1/2 -translate-x-1/2 border-b-slate-900",
-    left: "left-full top-1/2 -translate-y-1/2 border-l-slate-900",
-    right: "right-full top-1/2 -translate-y-1/2 border-r-slate-900"
-  };
-
-  return (
-    <div className={`relative group ${className}`}>
-      {children}
-      <div className={`absolute z-50 ${positionClasses[position]} w-56 p-2.5 bg-slate-900 text-white text-[10px] rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none font-normal normal-case leading-normal border border-slate-800`}>
-        <p className="font-sans font-medium text-slate-200">{text}</p>
-        <div className={`absolute border-4 border-transparent ${arrowClasses[position]}`}></div>
-      </div>
-    </div>
-  );
-}
+import LeakageCostCalculator from "./components/LeakageCostCalculator";
 
 export default function App() {
   const [currentCurrency, setCurrentCurrency] = useState<string>("USD");
-  const [emailPreferences, setEmailPreferences] = useState<boolean>(true);
 
-  // BUG FIX 1: Persistent LocalStorage State Initialization
+  // Persistent LocalStorage State Initialization
   const [subscriptions, setSubscriptions] = useState<Subscription[]>(() => {
     const saved = localStorage.getItem("subsnap_subscriptions");
     return saved ? JSON.parse(saved) : [
@@ -116,13 +30,8 @@ export default function App() {
     ];
   });
 
-  const [logs, setLogs] = useState<AuditLog[]>(() => {
+  const [logs] = useState<AuditLog[]>(() => {
     const saved = localStorage.getItem("subsnap_logs");
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [notifications, setNotifications] = useState<SystemNotification[]>(() => {
-    const saved = localStorage.getItem("subsnap_notifications");
     return saved ? JSON.parse(saved) : [];
   });
 
@@ -134,31 +43,13 @@ export default function App() {
   const [authEmail, setAuthEmail] = useState<string>("");
   const [authPassword, setAuthPassword] = useState<string>("");
   const [authName, setAuthName] = useState<string>("");
-  const [userName, setUserName] = useState<string>("");
   const [isSignUpState, setIsSignUpState] = useState<boolean>(true);
-  const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(() => {
-    try {
-      return localStorage.getItem("subsnap_google_access_token");
-    } catch (e) {
-      return null;
-    }
-  });
-  const [isGoogleAuthLoading, setIsGoogleAuthLoading] = useState<boolean>(false);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
-  const [bulkSelectedIds, setBulkSelectedIds] = useState<string[]>([]);
 
   // Sync state data directly to persistent local storage memory layers
   useEffect(() => {
     localStorage.setItem("subsnap_subscriptions", JSON.stringify(subscriptions));
   }, [subscriptions]);
-
-  useEffect(() => {
-    localStorage.setItem("subsnap_logs", JSON.stringify(logs));
-  }, [logs]);
-
-  useEffect(() => {
-    localStorage.setItem("subsnap_notifications", JSON.stringify(notifications));
-  }, [notifications]);
 
   useEffect(() => {
     localStorage.setItem("subsnap_logged_in", isLoggedIn.toString());
@@ -189,39 +80,23 @@ export default function App() {
     }
   }, []);
 
-  const fetchData = async () => {
-    console.log("Simulating dynamic data fetching array mapping...");
-  };
-
   useEffect(() => {
     const unsubscribe = initAuth(
-      async (user, token) => {
+      async (user) => {
         const email = user.email || "";
         await mergeGuestData(email);
         setIsLoggedIn(true);
         setAuthEmail(email);
-        setUserName(user.displayName || "Sathya Rammalu");
-        setGoogleAccessToken(token);
-        await fetchData();
       },
       () => {}
     );
     return () => unsubscribe();
   }, [mergeGuestData]);
 
-  const apiFetch = async (url: string, options: any = {}) => {
-    return fetch(url, options);
-  };
-
-  const triggerN8nWebhook = (sub: any) => {
-    console.log("n8n cloud webhook execution stream fired successfully:", sub);
-  };
-
   const triggerEmailSimulation = (title: string, msg: string) => {
     console.log(`Simulation Email Portal Triggered: [${title}] ${msg}`);
   };
 
-  // BUG FIX 2: Graceful Firebase Integration Simulation Wrapper
   const handleSendEmail = async () => {
     try {
       alert("Simulation Mode Active: Dispatching high-salience warning alerts safely via secure webhook pipelines!");
@@ -231,7 +106,7 @@ export default function App() {
     }
   };
 
-  // BUG FIX 3: Robust Dynamic Form Submission Injection Layer
+  // FIXED: Explicitly string-typed date conversion to resolve build compiler block
   const handleAddSubscriptionData = (formData: any) => {
     const newSubscription: Subscription = {
       id: typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Math.random().toString(),
@@ -247,33 +122,88 @@ export default function App() {
     setSubscriptions(prev => [newSubscription, ...prev]);
   };
 
-  const handleBulkCancel = async () => {
-    if (bulkSelectedIds.length === 0) return;
-    try {
-      const subsToCancel = subscriptions.filter(s => bulkSelectedIds.includes(s.id));
-      setSubscriptions(prev => prev.map(s => bulkSelectedIds.includes(s.id) ? { ...s, status: "cancelled" } : s));
-      setBulkSelectedIds([]);
-      subsToCancel.forEach(sub => triggerN8nWebhook(sub));
-    } catch (err) {
-      console.error("Error bulk cancelling:", err);
-    }
-  };
-
-  const handleBulkRevoke = async () => {
-    if (bulkSelectedIds.length === 0) return;
-    try {
-      const subsToRevoke = subscriptions.filter(s => bulkSelectedIds.includes(s.id));
-      setSubscriptions(prev => prev.map(s => bulkSelectedIds.includes(s.id) ? { ...s, status: "revoked" } : s));
-      setBulkSelectedIds([]);
-      subsToRevoke.forEach(sub => triggerN8nWebhook(sub));
-    } catch (err) {
-      console.error("Error bulk revoking:", err);
-    }
-  };
-
-  // Repaired Cut-off Data Sharing Summary Utility Code Function
   const getShareText = () => {
     const activeSubs = subscriptions.filter(s => s.status === "active");
     const totalSpend = activeSubs.reduce((sum, s) => sum + s.amount, 0);
+    return `📊 SubSnap Subscription Ledger Overview: Tracking ${activeSubs.length} active metrics with a combined structural overhead of ${totalSpend.toFixed(2)} ${currentCurrency}. Guard your wallet!`;
+  };
+
+  const executeShareAction = () => {
+    const shareText = getShareText();
+    if (navigator.share) {
+      navigator.share({ title: 'SubSnap Security Update', text: shareText }).catch(console.error);
+    } else {
+      navigator.clipboard.writeText(shareText);
+      alert("Ledger summary metadata text copied directly to clipboard memory matrices!");
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased p-6 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100">
+      <header className="flex justify-between items-center mb-8 border-b border-slate-200 pb-4 dark:border-slate-800">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 flex items-center gap-2">
+            <Zap className="h-6 w-6 text-slate-900 dark:text-slate-50 fill-current" /> SubSnap
+          </h1>
+          <p className="text-xs text-slate-500">Automated Subscription Leakage Prevention Matrix</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <select 
+            value={currentCurrency} 
+            onChange={(e) => setCurrentCurrency(e.target.value)}
+            className="text-xs font-semibold bg-white border border-slate-200 rounded-lg p-2 dark:bg-slate-900 dark:border-slate-800"
+          >
+            {SUPPORTED_CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>)}
+          </select>
+          <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 border border-slate-200 rounded-lg dark:border-slate-800">
+            {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
+          {isLoggedIn ? (
+            <button onClick={() => { setIsLoggedIn(false); googleLogout(); }} className="flex items-center gap-1 text-xs font-semibold bg-slate-900 text-white p-2 rounded-lg dark:bg-slate-50 dark:text-slate-900">
+              <LogOut className="h-4 w-4" /> Log Out
+            </button>
+          ) : (
+            <span className="text-xs text-slate-400 font-medium">Session Securely Paused</span>
+          )}
+        </div>
+      </header>
+
+      {!isLoggedIn ? (
+        <div className="max-w-md mx-auto my-12 p-6 bg-white border-2 border-slate-900 rounded-xl shadow-lg dark:bg-slate-900 dark:border-slate-800">
+          <h2 className="text-xl font-bold mb-2 flex items-center gap-1.5 text-slate-900 dark:text-slate-50">
+            <User className="h-5 w-5" /> Account Setup Portal
+          </h2>
+          <p className="text-xs text-slate-400 mb-6">Initialize your personal cryptographic security wallet parameters.</p>
+          <div className="space-y-4">
+            {isSignUpState && (
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Your Full Name</label>
+                <input type="text" value={authName} onChange={(e) => setAuthName(e.target.value)} placeholder="Sathya Rammalu" className="w-full text-xs p-2.5 border border-slate-200 rounded-lg dark:bg-slate-950 dark:border-slate-800" />
+              </div>
+            )}
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Email ID</label>
+              <input type="email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} placeholder="user@domain.com" className="w-full text-xs p-2.5 border border-slate-200 rounded-lg dark:bg-slate-950 dark:border-slate-800" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Password</label>
+              <input type="password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} placeholder="••••••••" className="w-full text-xs p-2.5 border border-slate-200 rounded-lg dark:bg-slate-950 dark:border-slate-800" />
+            </div>
+            <button onClick={() => setIsLoggedIn(true)} className="w-full bg-slate-900 text-white font-bold p-3 rounded-lg text-xs mt-4 hover:bg-slate-800 transition-colors dark:bg-slate-50 dark:text-slate-900">
+              {isSignUpState ? "Initialize Profile" : "Secure Log In"}
+            </button>
+            <div className="text-center mt-4">
+              <button onClick={() => setIsSignUpState(!isSignUpState)} className="text-[11px] font-medium text-slate-500 underline hover:text-slate-900 dark:hover:text-slate-100">
+                {isSignUpState ? "Already registered? Log in here" : "New to SubSnap? Create account profile"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <main className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-6">
+            <div className="p-4 bg-white border-2 border-slate-900 rounded-xl flex items-start gap-3 shadow-md dark:bg-slate-900 dark:border-red-900">
+              <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5 animate-pulse" />
+
 
        
