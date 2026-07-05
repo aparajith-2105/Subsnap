@@ -118,20 +118,35 @@ export default function App() {
   const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
   const [isGoogleAuthLoading, setIsGoogleAuthLoading] = useState<boolean>(false);
 
+  const mergeGuestData = useCallback(async (targetEmail: string) => {
+    try {
+      await fetch("/api/auth/merge-guest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guestEmail: "guest", targetEmail }),
+      });
+    } catch (err) {
+      console.error("Failed to merge guest data:", err);
+    }
+  }, []);
+
   useEffect(() => {
     const unsubscribe = initAuth(
-      (user, token) => {
+      async (user, token) => {
+        const email = user.email || "";
+        await mergeGuestData(email);
         setIsLoggedIn(true);
-        setAuthEmail(user.email || "");
+        setAuthEmail(email);
         setUserName(user.displayName || "Sathya Rammalu");
         setGoogleAccessToken(token);
+        await fetchData();
       },
       () => {
         // Fall back gracefully if not active Google session
       }
     );
     return () => unsubscribe();
-  }, []);
+  }, [mergeGuestData]);
 
   // New features states
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
@@ -414,7 +429,7 @@ export default function App() {
     });
   }, []);
 
-  const wsUrl = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}?email=${encodeURIComponent(authEmail || "guest")}`;
+  const wsUrl = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}?email=${encodeURIComponent(isLoggedIn && authEmail ? authEmail : "guest")}`;
 
   // Establish real-time persistent WebSocket connection with exponential backoff, heartbeats, and automated sync fallback
   const { status: wsStatus, isPollingActive } = useWebSocket(wsUrl, {
@@ -563,6 +578,9 @@ export default function App() {
     setAuthPassword("");
     setAuthName("");
     setAuthMessage(null);
+    setAuthState("login");
+    setEmailPreviewModal(false);
+    setLastEmailSent(null);
     setActiveTab("login");
     setOnboardingOption("none");
     setMobileShowContent(false);
@@ -699,11 +717,12 @@ export default function App() {
         body: JSON.stringify({ amount })
       });
       const data = await res.json();
+      const isBlocked = !res.ok || data.success === false;
       setTransactionLog(prev => ({
         ...prev,
         [id]: {
-          type: data.status === "BLOCKED" ? "blocked" : "approved",
-          text: data.message || `Simulated transaction attempt of $${amount.toFixed(2)} completed.`
+          type: isBlocked ? "blocked" : "approved",
+          text: isBlocked ? (data.error || "Blocked by VRP ceiling rules.") : (data.message || `Simulated transaction attempt of ${currencySymbol}${amount.toFixed(2)} completed.`)
         }
       }));
       fetchData();
@@ -762,7 +781,7 @@ export default function App() {
 
   useEffect(() => {
     fetchData();
-  }, [authEmail]);
+  }, [isLoggedIn]);
 
   useEffect(() => {
     if (subscriptions.length > 0) {
@@ -943,19 +962,25 @@ export default function App() {
       });
       const data = await res.json();
       if (res.ok) {
+        await mergeGuestData(data.email);
         setIsLoggedIn(true);
+        setAuthEmail(data.email);
         setUserName(data.name);
         setAuthMessage({ type: "success", text: `Registration successful! Account [${data.email}] secured with cryptographic tokens.` });
-        const updatedLogs = await apiFetch("/api/logs").then(r => r.json());
-        setLogs(updatedLogs);
+        setActiveTab("dashboard");
+        await fetchData();
       } else {
         setAuthMessage({ type: "error", text: data.error || "Registration failed." });
       }
     } catch (err) {
       console.error(err);
+      await mergeGuestData(authEmail);
       setIsLoggedIn(true);
+      setAuthEmail(authEmail);
       setUserName(authName || authEmail.split("@")[0] || "User");
       setAuthMessage({ type: "success", text: "Registration successful! (Offline Fallback active)" });
+      setActiveTab("dashboard");
+      await fetchData();
     }
   };
 
@@ -978,19 +1003,25 @@ export default function App() {
       });
       const data = await res.json();
       if (res.ok) {
+        await mergeGuestData(data.email);
         setIsLoggedIn(true);
+        setAuthEmail(data.email);
         setUserName(data.name);
         setAuthMessage({ type: "success", text: `Welcome back, ${data.name}! Session authorized.` });
-        const updatedLogs = await apiFetch("/api/logs").then(r => r.json());
-        setLogs(updatedLogs);
+        setActiveTab("dashboard");
+        await fetchData();
       } else {
         setAuthMessage({ type: "error", text: data.error || "Login failed." });
       }
     } catch (err) {
       console.error(err);
+      await mergeGuestData(authEmail);
       setIsLoggedIn(true);
+      setAuthEmail(authEmail);
       setUserName(authEmail.split("@")[0] || "User");
       setAuthMessage({ type: "success", text: `Welcome back! authorized.` });
+      setActiveTab("dashboard");
+      await fetchData();
     }
   };
 
@@ -1000,27 +1031,30 @@ export default function App() {
     try {
       const result = await googleSignIn();
       if (result) {
+        const email = result.user.email || "";
+        const name = result.user.displayName || "Sathya Rammalu";
+        await mergeGuestData(email);
         setIsLoggedIn(true);
-        setAuthEmail(result.user.email || "");
-        setUserName(result.user.displayName || "Sathya Rammalu");
+        setAuthEmail(email);
+        setUserName(name);
         setGoogleAccessToken(result.accessToken);
         setAuthMessage({ 
           type: "success", 
-          text: `Successfully authenticated as ${result.user.email}. Real Google Workspace Gmail notifications are now enabled!` 
+          text: `Successfully authenticated as ${email}. Real Google Workspace Gmail notifications are now enabled!` 
         });
         
         await apiFetch("/api/notifications/simulate-email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
-            email: result.user.email,
+            email: email,
             isRealGmail: true,
             subject: "OAuth Link Established",
-            details: `Secure Google OAuth link established with Gmail permissions for ${result.user.email}.`
+            details: `Secure Google OAuth link established with Gmail permissions for ${email}.`
           })
         });
-        const updatedLogs = await apiFetch("/api/logs").then(r => r.json());
-        setLogs(updatedLogs);
+        setActiveTab("dashboard");
+        await fetchData();
       }
     } catch (err: any) {
       console.error("Google Sign-In failed:", err);
@@ -1668,11 +1702,14 @@ export default function App() {
   const unreadNotifCount = notifications.filter(n => !n.read).length;
 
   const trendsData = getSpendingTrendsData();
-  const isAdobeActive = subscriptions.some(s => s.id === "adobe-1" && s.status !== "cancelled" && s.status !== "revoked");
+  const hasAdobe = subscriptions.some(s => s.id === "adobe-1" || s.name.toLowerCase().includes("adobe"));
+  const isAdobeActive = subscriptions.some(s => (s.id === "adobe-1" || s.name.toLowerCase().includes("adobe")) && s.status !== "cancelled" && s.status !== "revoked");
 
   // Helper to trigger alert intervention focus
   const triggerIntervention = (subId: string) => {
-    setSelectedSubId(subId);
+    const actualAdobe = subscriptions.find(s => s.id === "adobe-1" || s.name.toLowerCase().includes("adobe"));
+    const idToUse = actualAdobe ? actualAdobe.id : subId;
+    setSelectedSubId(idToUse);
     setActiveTab("dashboard");
     setTimeout(() => {
       interventionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -2327,7 +2364,7 @@ export default function App() {
         </header>
 
         {/* HIGH-SALIENCE BILLING NOTIFICATION CARD (placed absolute top of workspace) */}
-        {activeTab === "dashboard" && alertActive && subscriptions.some(s => s.id === "adobe-1" && s.status !== "cancelled" && s.status !== "revoked") && (
+        {activeTab === "dashboard" && alertActive && isAdobeActive && (
           <div className="px-6 pt-6 shrink-0">
             <div className="bg-white border-2 border-slate-900 rounded-lg p-5 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 relative overflow-hidden">
               <div className="absolute top-0 bottom-0 left-0 w-2 bg-[#EF4444]"></div>
@@ -3097,11 +3134,11 @@ export default function App() {
                                 <p>Set the maximum debit amount authorized per billing cycle. Any charge attempt exceeding this cap is automatically intercepted and blocked.</p>
                               </div>
                               <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
-                                <span className="text-xs font-mono font-bold text-slate-700">$</span>
+                                <span className="text-xs font-mono font-bold text-slate-700">{currencySymbol}</span>
                                 <input
                                   type="number"
                                   placeholder={selectedSubscription.max_amount_per_charge ? String(selectedSubscription.max_amount_per_charge) : "e.g. 50"}
-                                  value={spendingCapInputs[selectedSubscription.id] ?? ""}
+                                  value={spendingCapInputs[selectedSubscription.id] ?? (selectedSubscription.max_amount_per_charge ? String(selectedSubscription.max_amount_per_charge) : "")}
                                   onChange={(e) => setSpendingCapInputs({
                                     ...spendingCapInputs,
                                     [selectedSubscription.id]: e.target.value
@@ -3110,7 +3147,12 @@ export default function App() {
                                 />
                                 <DescriptiveTooltip text="Sets a maximum transaction cap on the VRP mandate. Charges above this amount are automatically blocked by the banking API." position="top">
                                   <button
-                                    onClick={() => handleUpdateSpendingCap(selectedSubscription.id, Number(spendingCapInputs[selectedSubscription.id] || 0))}
+                                    onClick={() => {
+                                      const val = spendingCapInputs[selectedSubscription.id] !== undefined
+                                        ? spendingCapInputs[selectedSubscription.id]
+                                        : (selectedSubscription.max_amount_per_charge ? String(selectedSubscription.max_amount_per_charge) : "");
+                                      handleUpdateSpendingCap(selectedSubscription.id, Number(val || 0));
+                                    }}
                                     className="px-4 py-2 bg-[#0F172A] hover:bg-slate-900 text-white font-bold text-[10px] uppercase tracking-wider rounded-lg transition-colors whitespace-nowrap cursor-pointer"
                                   >
                                     Update Limit
@@ -3131,7 +3173,7 @@ export default function App() {
                               <div className="flex flex-col sm:flex-row items-center gap-3">
                                 <div className="flex items-center gap-2 w-full sm:w-auto">
                                   <span className="text-xs font-mono font-bold text-slate-500">Charge Amount:</span>
-                                  <span className="text-xs font-mono font-bold text-slate-700">$</span>
+                                  <span className="text-xs font-mono font-bold text-slate-700">{currencySymbol}</span>
                                   <input
                                     type="number"
                                     placeholder="Amount"
@@ -3626,29 +3668,31 @@ export default function App() {
                       </div>
 
                       {/* Insight Callout */}
-                      <div className={`mt-5 p-4 rounded-lg border flex items-start gap-3 transition-colors ${
-                        isAdobeActive 
-                          ? "bg-red-50/50 border-[#EF4444]/20 text-[#0F172A]" 
-                          : "bg-emerald-50/40 border-[#10B981]/20 text-[#0F172A]"
-                      }`}>
-                        <div className={`p-1.5 rounded-lg mt-0.5 shrink-0 ${isAdobeActive ? "bg-[#EF4444] text-white" : "bg-[#10B981] text-white"}`}>
-                          <TrendingUp className="w-4 h-4" />
+                      {hasAdobe && (
+                        <div className={`mt-5 p-4 rounded-lg border flex items-start gap-3 transition-colors ${
+                          isAdobeActive 
+                            ? "bg-red-50/50 border-[#EF4444]/20 text-[#0F172A]" 
+                            : "bg-emerald-50/40 border-[#10B981]/20 text-[#0F172A]"
+                        }`}>
+                          <div className={`p-1.5 rounded-lg mt-0.5 shrink-0 ${isAdobeActive ? "bg-[#EF4444] text-white" : "bg-[#10B981] text-white"}`}>
+                            <TrendingUp className="w-4 h-4" />
+                          </div>
+                          <div className="text-xs leading-relaxed">
+                            <span className="font-bold uppercase block text-[9px] tracking-wider mb-1 font-mono">
+                              {isAdobeActive ? "Urgent Spending Alert" : "Mitigation Success Metric"}
+                            </span>
+                            {isAdobeActive ? (
+                              <p>
+                                <strong>Cost Spike Identified:</strong> Your monthly recurring totals spiked by <strong className="font-semibold text-[#EF4444] font-mono">{formatCurrency(convertCurrency(89.99, "USD", currency), currency)}</strong> (+290.5%) in March 2026 due to the activation of <strong className="font-semibold">Adobe Creative Cloud</strong>. Your actual usage shows 0 interactions in the last 30 days. Mitigate this leak instantly using the one-click end subscription action below.
+                              </p>
+                            ) : (
+                              <p>
+                                <strong>Leak Mitigated Successfully:</strong> You terminated the <strong className="font-semibold text-emerald-600">Adobe Creative Cloud</strong> subscription leak! This single mitigation action has decreased your monthly exposure from <strong className="font-mono text-slate-500 line-through">{formatCurrency(convertCurrency(125.96, "USD", currency), currency)}</strong> back to <strong className="font-mono text-emerald-600 font-bold">{formatCurrency(convertCurrency(35.97, "USD", currency), currency)}</strong>, protecting you from future billing surprises.
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-xs leading-relaxed">
-                          <span className="font-bold uppercase block text-[9px] tracking-wider mb-1 font-mono">
-                            {isAdobeActive ? "Urgent Spending Alert" : "Mitigation Success Metric"}
-                          </span>
-                          {isAdobeActive ? (
-                            <p>
-                              <strong>Cost Spike Identified:</strong> Your monthly recurring totals spiked by <strong className="font-semibold text-[#EF4444] font-mono">{formatCurrency(convertCurrency(89.99, "USD", currency), currency)}</strong> (+290.5%) in March 2026 due to the activation of <strong className="font-semibold">Adobe Creative Cloud</strong>. Your actual usage shows 0 interactions in the last 30 days. Mitigate this leak instantly using the one-click end subscription action below.
-                            </p>
-                          ) : (
-                            <p>
-                              <strong>Leak Mitigated Successfully:</strong> You terminated the <strong className="font-semibold text-emerald-600">Adobe Creative Cloud</strong> subscription leak! This single mitigation action has decreased your monthly exposure from <strong className="font-mono text-slate-500 line-through">{formatCurrency(convertCurrency(125.96, "USD", currency), currency)}</strong> back to <strong className="font-mono text-emerald-600 font-bold">{formatCurrency(convertCurrency(35.97, "USD", currency), currency)}</strong>, protecting you from future billing surprises.
-                            </p>
-                          )}
-                        </div>
-                      </div>
+                      )}
                     </div>
 
                   </div>

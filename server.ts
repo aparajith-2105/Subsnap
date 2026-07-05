@@ -184,6 +184,50 @@ app.use((req: any, res, next) => {
   next();
 });
 
+app.post("/api/auth/merge-guest", (req, res) => {
+  const { guestEmail, targetEmail } = req.body;
+  if (!guestEmail || !targetEmail) {
+    return res.status(400).json({ error: "guestEmail and targetEmail are required." });
+  }
+
+  const guestState = getUserState(guestEmail);
+  const userState = getUserState(targetEmail);
+
+  let mergedCount = 0;
+  // Merge subscriptions
+  if (guestState.subscriptions && guestState.subscriptions.length > 0) {
+    guestState.subscriptions.forEach((sub) => {
+      if (!userState.subscriptions.some((s) => s.name.toLowerCase() === sub.name.toLowerCase() || s.id === sub.id)) {
+        userState.subscriptions.push(sub);
+        mergedCount++;
+      }
+    });
+  }
+
+  // Merge logs
+  if (guestState.logs && guestState.logs.length > 0) {
+    guestState.logs.forEach((log) => {
+      if (!userState.logs.some((l) => l.id === log.id)) {
+        userState.logs.unshift(log);
+      }
+    });
+  }
+
+  // Merge notifications
+  if (guestState.notifications && guestState.notifications.length > 0) {
+    guestState.notifications.forEach((notif) => {
+      if (!userState.notifications.some((n) => n.id === notif.id)) {
+        userState.notifications.unshift(notif);
+      }
+    });
+  }
+
+  // Clear guest state to avoid duplicate merges
+  guestState.subscriptions = [];
+  
+  res.json({ success: true, mergedCount });
+});
+
 app.post("/api/auth/signup", (req, res) => {
   const { logs } = (req as any).userState;
   const { email, password, name } = req.body;
@@ -635,11 +679,12 @@ app.post("/api/subscriptions/:id/spending-cap", (req, res) => {
   console.log(`[SQL Sim] ${query}`);
   
   const timestamp = new Date().toISOString().replace("T", " ").substring(0, 19);
+  const sym = getVisualSymbol(sub.currency || "USD");
   logs.unshift({
     id: `log-${Date.now()}`,
     timestamp: timestamp,
     action: "VRP_CAP_UPDATE",
-    details: `Updated VRP Spending Cap for ${sub.name} to $${max_amount_per_charge}. (Mapped to vrp_consent_guards.max_amount_per_charge).`,
+    details: `Updated VRP Spending Cap for ${sub.name} to ${sym}${max_amount_per_charge}. (Mapped to vrp_consent_guards.max_amount_per_charge).`,
     status: "SUCCESS",
   });
   
@@ -664,6 +709,7 @@ app.post("/api/subscriptions/:id/charge", (req, res) => {
   }
 
   const limit = sub.max_amount_per_charge;
+  const sym = getVisualSymbol(sub.currency || "USD");
   if (limit && amount > limit) {
     // BLOCKED by VRP spending ceiling!
     const timestamp = new Date().toISOString().replace("T", " ").substring(0, 19);
@@ -672,7 +718,7 @@ app.post("/api/subscriptions/:id/charge", (req, res) => {
       id: `log-${Date.now()}`,
       timestamp: timestamp,
       action: "VRP_BLOCK_CAP",
-      details: `BLOCKED CHARGE of $${amount.toFixed(2)} on ${sub.name} (exceeded VRP cap of $${limit.toFixed(2)}).`,
+      details: `BLOCKED CHARGE of ${sym}${amount.toFixed(2)} on ${sub.name} (exceeded VRP cap of ${sym}${limit.toFixed(2)}).`,
       status: "COMPLIANT",
     });
 
@@ -680,7 +726,7 @@ app.post("/api/subscriptions/:id/charge", (req, res) => {
       id: `notif-${Date.now()}`,
       type: "anomaly",
       title: "VRP Cap Auto-Blocked",
-      message: `Blocked pending charge of $${amount.toFixed(2)} on ${sub.name}. VRP spending ceiling of $${limit.toFixed(2)} triggered.`,
+      message: `Blocked pending charge of ${sym}${amount.toFixed(2)} on ${sub.name}. VRP spending ceiling of ${sym}${limit.toFixed(2)} triggered.`,
       timestamp: timestamp,
       read: false,
       severity: "high",
@@ -696,7 +742,7 @@ app.post("/api/subscriptions/:id/charge", (req, res) => {
 
     return res.status(400).json({
       success: false,
-      error: `Auto-block active: Debit attempt of $${amount.toFixed(2)} exceeds strict local spending ceiling of $${limit.toFixed(2)} defined in vrp_consent_guards.`,
+      error: `Auto-block active: Debit attempt of ${sym}${amount.toFixed(2)} exceeds strict local spending ceiling of ${sym}${limit.toFixed(2)} defined in vrp_consent_guards.`,
     });
   }
 
@@ -706,7 +752,7 @@ app.post("/api/subscriptions/:id/charge", (req, res) => {
     id: `log-${Date.now()}`,
     timestamp: timestamp,
     action: "VRP_CHARGE_DEBIT",
-    details: `Processed charge of $${amount.toFixed(2)} for ${sub.name}. Ledger updated.`,
+    details: `Processed charge of ${sym}${amount.toFixed(2)} for ${sub.name}. Ledger updated.`,
     status: "SUCCESS",
   });
 
@@ -716,7 +762,7 @@ app.post("/api/subscriptions/:id/charge", (req, res) => {
     log: logs[0],
   }, userEmail);
 
-  res.json({ success: true, message: "Charge processed successfully" });
+  res.json({ success: true, message: `Charge of ${sym}${amount.toFixed(2)} processed successfully` });
 });
 
 // Fetch all notifications
