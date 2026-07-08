@@ -105,16 +105,41 @@ function DescriptiveTooltip({ text, children, position = "top", className = "inl
 }
 
 export default function App() {
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>(() => {
+    try {
+      const saved = localStorage.getItem("subsnap_subscriptions");
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [notifications, setNotifications] = useState<SystemNotification[]>([]);
 
   // Authentication Card States (Moved to top to prevent temporal dead zone)
-  const [authEmail, setAuthEmail] = useState<string>("");
+  const [authEmail, setAuthEmail] = useState<string>(() => {
+    try {
+      return localStorage.getItem("subsnap_auth_email") || "";
+    } catch (e) {
+      return "";
+    }
+  });
   const [authPassword, setAuthPassword] = useState<string>("");
   const [authName, setAuthName] = useState<string>("");
-  const [userName, setUserName] = useState<string>("");
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [userName, setUserName] = useState<string>(() => {
+    try {
+      return localStorage.getItem("subsnap_user_name") || "";
+    } catch (e) {
+      return "";
+    }
+  });
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("subsnap_is_logged_in") === "true";
+    } catch (e) {
+      return false;
+    }
+  });
   const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(() => {
     try {
       return localStorage.getItem("subsnap_google_access_token");
@@ -123,6 +148,38 @@ export default function App() {
     }
   });
   const [isGoogleAuthLoading, setIsGoogleAuthLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("subsnap_subscriptions", JSON.stringify(subscriptions));
+    } catch (e) {
+      console.error("Failed to save subscriptions to localStorage:", e);
+    }
+  }, [subscriptions]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("subsnap_is_logged_in", String(isLoggedIn));
+    } catch (e) {
+      console.error("Failed to save isLoggedIn to localStorage:", e);
+    }
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("subsnap_auth_email", authEmail);
+    } catch (e) {
+      console.error("Failed to save authEmail to localStorage:", e);
+    }
+  }, [authEmail]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("subsnap_user_name", userName);
+    } catch (e) {
+      console.error("Failed to save userName to localStorage:", e);
+    }
+  }, [userName]);
 
   const mergeGuestData = useCallback(async (targetEmail: string) => {
     try {
@@ -1217,10 +1274,10 @@ export default function App() {
       const newSubObj = {
         name: manualName,
         amount: amountVal,
-        currency: currency,
-        frequency: manualFrequency,
-        category: manualCategory,
-        predictedNextDate: manualNextBillingDate,
+        currency: currency || "USD",
+        frequency: manualFrequency || "monthly",
+        category: manualCategory || "Other",
+        predictedNextDate: manualNextBillingDate || new Date().toISOString().split("T")[0],
       };
       const response = await apiFetch("/api/subscriptions", {
         method: "POST",
@@ -4160,6 +4217,24 @@ export default function App() {
                           )}
                         </div>
 
+                        {/* MANUAL EMAIL DISPATCH PORTAL */}
+                        <div className="border-t border-slate-800 pt-4 space-y-2">
+                          <span className="text-[9px] font-mono tracking-wider uppercase text-slate-400 block font-bold">
+                            Interactive Email Dispatch Portal
+                          </span>
+                          <p className="text-[10px] text-slate-400 leading-normal">
+                            Manually trigger and dispatch an outbound SubSnap compliance warning digest email. This runs your global secure script immediately.
+                          </p>
+                          <button
+                            type="button"
+                            id="email-dispatch-portal-btn"
+                            onClick={handleTriggerWarningDigest}
+                            className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] uppercase tracking-wider rounded transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <span>Dispatch Threat Warning Digest</span>
+                          </button>
+                        </div>
+
                         {/* PASSWORD RESET SUB-FORM */}
                         <div className="border-t border-slate-800 pt-4 space-y-3">
                           <span className="text-[9px] font-mono tracking-wider uppercase text-slate-400 block font-bold">
@@ -5003,6 +5078,3 @@ export default function App() {
     </div>
   );
 }
-
-
-       
