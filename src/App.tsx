@@ -624,6 +624,7 @@ export default function App() {
   // Option C: Manual Add Form
   const [manualName, setManualName] = useState<string>("");
   const [manualAmount, setManualAmount] = useState<string>("");
+  const [manualCurrency, setManualCurrency] = useState<string>("USD");
   const [manualFrequency, setManualFrequency] = useState<string>("monthly");
   const [manualCategory, setManualCategory] = useState<string>("Entertainment");
   const [manualNextBillingDate, setManualNextBillingDate] = useState<string>(
@@ -1377,7 +1378,7 @@ export default function App() {
       const newSubObj = {
         name: manualName,
         amount: amountVal,
-        currency: currency || "USD",
+        currency: manualCurrency || "USD",
         frequency: manualFrequency || "monthly",
         category: manualCategory || "Other",
         predictedNextDate: manualNextBillingDate || new Date().toISOString().split("T")[0],
@@ -1388,16 +1389,31 @@ export default function App() {
         body: JSON.stringify({ subscriptions: [newSubObj] }),
       });
       if (response.ok) {
-        await fetchData();
+        const addedSub = await response.json();
+        
+        // Update local subscriptions state instantly to guarantee immediate dashboard rendering
+        setSubscriptions(prev => {
+          const updated = [...prev, addedSub];
+          localStorage.setItem("subsnap_subscriptions", JSON.stringify(updated));
+          return updated;
+        });
+
         setManualName("");
         setManualAmount("");
         setOnboardingOption("none");
         
-        // Add system notification
-        const notifRes = await apiFetch("/api/notifications");
-        if (notifRes.ok) {
-          const notifs = await notifRes.json();
-          setNotifications(notifs);
+        // Fetch fresh logs and notifications to sync the manual-add audit trail
+        const [logsRes, notifsRes] = await Promise.all([
+          apiFetch("/api/logs"),
+          apiFetch("/api/notifications")
+        ]);
+        if (logsRes.ok) {
+          const logsData = await logsRes.json();
+          setLogs(logsData);
+        }
+        if (notifsRes.ok) {
+          const notifsData = await notifsRes.json();
+          setNotifications(notifsData);
         }
       } else {
         const err = await response.json();
@@ -3037,6 +3053,20 @@ export default function App() {
                         >
                           <Share2 className="w-3 h-3 text-indigo-600" />
                           Share Summary
+                        </button>
+
+                        {/* Add Subscription Button */}
+                        <button
+                          id="btn-add-subscription"
+                          onClick={() => {
+                            setActiveTab("config");
+                            setOnboardingOption("manual");
+                          }}
+                          className="flex items-center gap-1.5 text-[10px] text-emerald-700 hover:text-emerald-800 font-mono bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-lg border border-emerald-200/50 shadow-sm font-bold uppercase transition-colors cursor-pointer"
+                          title="Add a new subscription manually"
+                        >
+                          <PlusCircle className="w-3 h-3 text-emerald-600" />
+                          Add Subscription
                         </button>
 
                         <span className="text-[10px] text-[#475569] font-mono flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-[#475569]/20 shadow-sm">
@@ -4837,20 +4867,39 @@ export default function App() {
                           </div>
 
                           <div>
-                            <label className="block text-[#475569] uppercase font-bold tracking-wider mb-1.5">Merchant Name</label>
-                            <input 
-                              type="text" 
-                              required
-                              placeholder="Netflix, Spotify, GitHub, Adobe..."
-                              value={manualName}
-                              onChange={(e) => setManualName(e.target.value)}
-                              className="w-full bg-slate-50 border border-[#475569]/30 focus:border-[#0F172A] p-3 rounded-lg text-[#0F172A] font-bold outline-none"
-                            />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-[#475569] uppercase font-bold tracking-wider mb-1.5">Merchant Name</label>
+                                <input 
+                                  type="text" 
+                                  required
+                                  placeholder="Netflix, Spotify, GitHub, Adobe..."
+                                  value={manualName}
+                                  onChange={(e) => setManualName(e.target.value)}
+                                  className="w-full bg-slate-50 border border-[#475569]/30 focus:border-[#0F172A] p-3 rounded-lg text-[#0F172A] font-bold outline-none"
+                                />
+                              </div>
+                              
+                              <div>
+                                <label className="block text-[#475569] uppercase font-bold tracking-wider mb-1.5">Billing Currency</label>
+                                <select 
+                                  value={manualCurrency}
+                                  onChange={(e) => setManualCurrency(e.target.value)}
+                                  className="w-full bg-slate-50 border border-[#475569]/30 focus:border-[#0F172A] p-3 rounded-lg text-[#0F172A] outline-none cursor-pointer"
+                                >
+                                  {SUPPORTED_CURRENCIES.map((curr) => (
+                                    <option key={curr.code} value={curr.code}>
+                                      {curr.flag} {curr.code} ({curr.symbol}) - {curr.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                              <label className="block text-[#475569] uppercase font-bold tracking-wider mb-1.5">Billing Amount ({currencySymbol})</label>
+                              <label className="block text-[#475569] uppercase font-bold tracking-wider mb-1.5">Billing Amount ({getCurrencySymbol(manualCurrency)})</label>
                               <input 
                                 type="number" 
                                 step="0.01"
