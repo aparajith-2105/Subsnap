@@ -630,6 +630,7 @@ export default function App() {
   const [manualNextBillingDate, setManualNextBillingDate] = useState<string>(
     new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
   );
+  const [manualAddError, setManualAddError] = useState<string | null>(null);
 
   // Option D: Receipt Paste
   const [receiptPasteText, setReceiptPasteText] = useState<string>("");
@@ -1393,15 +1394,21 @@ export default function App() {
 
   const handleManualAdd = async (e: React.FormEvent) => {
     e.preventDefault();
+    setManualAddError(null);
     if (!manualName.trim() || !manualAmount.trim()) {
-      alert("Please fill in the merchant name and amount.");
+      setManualAddError("Please fill in the merchant name and amount.");
       return;
     }
     setIsLoading(true);
     try {
       const amountVal = parseFloat(manualAmount);
+      if (isNaN(amountVal) || amountVal <= 0) {
+        setManualAddError("Please enter a valid billing amount.");
+        setIsLoading(false);
+        return;
+      }
       const newSubObj = {
-        name: manualName,
+        name: manualName.trim(),
         amount: amountVal,
         currency: manualCurrency || "USD",
         frequency: manualFrequency || "monthly",
@@ -1425,40 +1432,33 @@ export default function App() {
           addedSubObj = addedSub;
         }
 
-        // Update local subscriptions state instantly to guarantee immediate dashboard rendering
-        setSubscriptions(prev => {
-          // Prevent duplicates
-          const exists = prev.some(s => s.id === addedSubObj.id || s.name.toLowerCase() === addedSubObj.name.toLowerCase());
-          if (exists) return prev;
-          const updated = [...prev, addedSubObj];
-          localStorage.setItem("subsnap_subscriptions", JSON.stringify(updated));
-          return updated;
-        });
+        // Direct client state update as optimistic update or instant render
+        if (addedSubObj && addedSubObj.id) {
+          setSubscriptions(prev => {
+            const exists = prev.some(s => s.id === addedSubObj.id);
+            if (exists) return prev;
+            const updated = [...prev, addedSubObj];
+            try {
+              localStorage.setItem("subsnap_subscriptions", JSON.stringify(updated));
+            } catch (e) {}
+            return updated;
+          });
+        }
 
         setManualName("");
         setManualAmount("");
         setOnboardingOption("none");
         setActiveTab("dashboard");
         
-        // Fetch fresh logs and notifications to sync the manual-add audit trail
-        const [logsRes, notifsRes] = await Promise.all([
-          apiFetch("/api/logs"),
-          apiFetch("/api/notifications")
-        ]);
-        if (logsRes.ok) {
-          const logsData = await logsRes.json();
-          setLogs(logsData);
-        }
-        if (notifsRes.ok) {
-          const notifsData = await notifsRes.json();
-          setNotifications(notifsData);
-        }
+        // Refresh all dashboards, logs, and state directly from the backend
+        await fetchData();
       } else {
-        const err = await response.json();
-        alert(err.error || "Failed to add subscription.");
+        const err = await response.json().catch(() => ({}));
+        setManualAddError(err.error || "Failed to add subscription on the server.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to add subscription:", err);
+      setManualAddError(err?.message || "An unexpected error occurred while adding the subscription.");
     } finally {
       setIsLoading(false);
     }
@@ -4918,6 +4918,13 @@ export default function App() {
                             </h2>
                             <p className="text-xs text-[#475569]">Enter standard merchant billing values to manually establish an active mandate monitor.</p>
                           </div>
+
+                          {manualAddError && (
+                            <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-xs font-medium flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping shrink-0" />
+                              <span>{manualAddError}</span>
+                            </div>
+                          )}
 
                           <div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
