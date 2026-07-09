@@ -204,84 +204,9 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 2
 }
 
 async function saveUserStateToFirestore(email: string, state: UserState, idToken?: string | null) {
-  if (!firebaseConfig || !firebaseConfig.projectId) return;
   const key = email ? (typeof email === "string" ? email.toLowerCase().trim() : "guest") : "guest";
-  
-  // Never attempt to write guest state to the cloud
-  if (key === "guest") {
-    console.log("[Firestore] Bypassing cloud save for guest user.");
-    return;
-  }
-  
-  // 1. Try Firestore official SDK first (only for (default) database)
-  const databaseId = firebaseConfig.firestoreDatabaseId || "(default)";
-  if (dbClient && databaseId === "(default)") {
-    try {
-      const docRef = dbClient.collection("user_states").doc(key);
-      await docRef.set({ stateJson: JSON.stringify(state) }, { merge: true });
-      console.log(`[Firestore SDK] Saved state successfully for: ${key}`);
-      return;
-    } catch (sdkErr: any) {
-      console.log(`[Firestore SDK] Save failed for user ${key}, trying REST fallback:`, sdkErr?.message || sdkErr);
-    }
-  }
-
-  // 2. Fallback to Firestore REST API
-  if (!firebaseConfig.apiKey) return;
-  const projectId = firebaseConfig.projectId;
-  const apiKey = firebaseConfig.apiKey;
-  const encodedKey = encodeURIComponent(key);
-  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents/user_states/${encodedKey}?updateMask.fieldPaths=stateJson&key=${apiKey}`;
-  
-  const body = {
-    fields: {
-      stateJson: {
-        stringValue: JSON.stringify(state)
-      }
-    }
-  };
-
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (idToken) {
-    headers["Authorization"] = `Bearer ${idToken}`;
-  }
-
-  try {
-    const res = await fetchWithTimeout(url, {
-      method: "PATCH",
-      headers,
-      body: JSON.stringify(body)
-    }, 2000);
-
-    if (res.ok) {
-      console.log(`[Firestore REST] Saved state successfully for: ${key}`);
-      return;
-    }
-
-    // Self-healing: if 403 Forbidden and Authorization header was used, retry without Authorization header
-    if (res.status === 403 && headers["Authorization"]) {
-      console.warn(`[Firestore REST] Save failed with 403 with Authorization header, retrying without Authorization...`);
-      const fallbackHeaders = { "Content-Type": "application/json" };
-      const retryRes = await fetchWithTimeout(url, {
-        method: "PATCH",
-        headers: fallbackHeaders,
-        body: JSON.stringify(body)
-      }, 2000);
-
-      if (retryRes.ok) {
-        console.log(`[Firestore REST] Saved state successfully after stripping Authorization header!`);
-        return;
-      } else {
-        const retryErrText = await retryRes.text();
-        console.error(`[Firestore REST] Retry save failed status ${retryRes.status}:`, retryErrText);
-      }
-    } else {
-      const errText = await res.text();
-      console.error(`[Firestore REST] Save failed status ${res.status}:`, errText);
-    }
-  } catch (err) {
-    console.error(`[Firestore REST] Save failed for user ${key}:`, err);
-  }
+  console.log(`[Firestore Bypass] Auto-saving bypassed for user: ${key} (In-memory persistence active)`);
+  return;
 }
 
 async function getUserStateFromFirestore(email?: string, idToken?: string | null): Promise<UserState> {
@@ -292,114 +217,16 @@ async function getUserStateFromFirestore(email?: string, idToken?: string | null
     return userStates.get(key)!;
   }
 
-  let state: UserState | null = null;
-
-  if (key !== "guest" && firebaseConfig && firebaseConfig.projectId) {
-    const databaseId = firebaseConfig.firestoreDatabaseId || "(default)";
-    // 1. Try Firestore official SDK first (only for (default) database)
-    if (dbClient && databaseId === "(default)") {
-      try {
-        const docRef = dbClient.collection("user_states").doc(key);
-        const docSnap = await docRef.get();
-        if (docSnap.exists) {
-          const data = docSnap.data();
-          const stateJson = data?.stateJson;
-          if (stateJson) {
-            state = JSON.parse(stateJson);
-            console.log(`[Firestore SDK] Loaded state successfully for: ${key}`);
-            firestoreLoadStatus.set(key, "success");
-            userStates.set(key, state);
-            return state;
-          }
-        } else {
-          console.log(`[Firestore SDK] State not found (404) for: ${key}, initializing fresh state.`);
-          firestoreLoadStatus.set(key, "success");
-        }
-      } catch (sdkErr: any) {
-        console.log(`[Firestore SDK] Get failed for user ${key}, trying REST fallback:`, sdkErr?.message || sdkErr);
-        firestoreLoadStatus.set(key, "fallback");
-      }
-    }
-
-    // 2. Fallback to Firestore REST API
-    if (firebaseConfig.apiKey) {
-      const projectId = firebaseConfig.projectId;
-      const apiKey = firebaseConfig.apiKey;
-      const databaseId = firebaseConfig.firestoreDatabaseId || "(default)";
-      const encodedKey = encodeURIComponent(key);
-      const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents/user_states/${encodedKey}?key=${apiKey}`;
-      
-      const headers: Record<string, string> = {};
-      if (idToken) {
-        headers["Authorization"] = `Bearer ${idToken}`;
-      }
-
-      try {
-        const res = await fetchWithTimeout(url, { method: "GET", headers }, 2000);
-        if (res.ok) {
-          const data = await res.json();
-          const stateJson = data?.fields?.stateJson?.stringValue;
-          if (stateJson) {
-            state = JSON.parse(stateJson);
-            console.log(`[Firestore REST] Loaded state successfully for: ${key}`);
-            firestoreLoadStatus.set(key, "success");
-          }
-        } else if (res.status === 404) {
-          console.log(`[Firestore REST] State not found (404) for: ${key}, initializing fresh state.`);
-          firestoreLoadStatus.set(key, "success");
-        } else if (res.status === 403 && headers["Authorization"]) {
-          // Self-healing: if 403 Forbidden and Authorization header was used, retry without Authorization header
-          console.warn(`[Firestore REST] Get failed with 403 with Authorization header, retrying without Authorization...`);
-          const retryRes = await fetchWithTimeout(url, { method: "GET", headers: {} }, 2000);
-          if (retryRes.ok) {
-            const data = await retryRes.json();
-            const stateJson = data?.fields?.stateJson?.stringValue;
-            if (stateJson) {
-              state = JSON.parse(stateJson);
-              console.log(`[Firestore REST] Loaded state successfully after stripping Authorization header!`);
-              firestoreLoadStatus.set(key, "success");
-            }
-          } else if (retryRes.status === 404) {
-            console.log(`[Firestore REST] State not found (404) after retry for: ${key}, initializing fresh state.`);
-            firestoreLoadStatus.set(key, "success");
-          } else {
-            const retryErrText = await retryRes.text();
-            console.error(`[Firestore REST] Retry get failed status ${retryRes.status}:`, retryErrText);
-            firestoreLoadStatus.set(key, "fallback");
-          }
-        } else {
-          const errText = await res.text();
-          console.warn(`[Firestore REST] Get failed status ${res.status}:`, errText);
-          firestoreLoadStatus.set(key, "fallback");
-        }
-      } catch (err) {
-        console.error(`[Firestore REST] Get failed for user ${key}, falling back to memory:`, err);
-        firestoreLoadStatus.set(key, "fallback");
-      }
-    }
-  }
-
-  if (state) {
-    if (!state.subscriptions) state.subscriptions = getInitialSubscriptions();
-    if (!state.logs) state.logs = getInitialLogs();
-    if (!state.notifications) state.notifications = getInitialNotifications();
-    if (!state.plaidConfig) state.plaidConfig = getInitialPlaidConfig();
-    if (state.plaidConfig) {
-      if (state.plaidConfig.clientId === undefined) state.plaidConfig.clientId = "";
-      if (state.plaidConfig.secret === undefined) state.plaidConfig.secret = "";
-      if (state.plaidConfig.environment === undefined) state.plaidConfig.environment = "sandbox";
-      if (state.plaidConfig.accessToken === undefined) state.plaidConfig.accessToken = "";
-    }
-  } else {
-    state = {
-      subscriptions: getInitialSubscriptions(),
-      logs: getInitialLogs(),
-      notifications: getInitialNotifications(),
-      plaidConfig: getInitialPlaidConfig(),
-    };
-  }
+  let state: UserState = {
+    subscriptions: getInitialSubscriptions(),
+    logs: getInitialLogs(),
+    notifications: getInitialNotifications(),
+    plaidConfig: getInitialPlaidConfig(),
+  };
 
   userStates.set(key, state);
+  firestoreLoadStatus.set(key, "success");
+  console.log(`[Firestore Bypass] Initialized in-memory state for user: ${key}`);
   return state;
 }
 

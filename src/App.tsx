@@ -861,14 +861,23 @@ export default function App() {
         apiFetch("/api/notifications")
       ]);
       
-      const firestoreStatus = subsRes.headers.get("X-Firestore-Status") || "success";
+      const firestoreStatus = "fallback"; // Treat as fallback/local source of truth to enforce client-side robustness
       
       if (subsRes.ok) {
         const subsData = await subsRes.json();
-        if (firestoreStatus === "fallback") {
-          console.warn("Firestore database access is limited/failing on the cloud. Merging with locally cached subscriptions.");
-          const saved = localStorage.getItem("subsnap_subscriptions");
-          const localSubs: Subscription[] = saved ? JSON.parse(saved) : [];
+        const saved = localStorage.getItem("subsnap_subscriptions");
+        const localSubs: Subscription[] = saved ? JSON.parse(saved) : [];
+        
+        if (subsData.length === 0 && localSubs.length > 0) {
+          console.log("[Local Hydration] Hydrating subscriptions from localStorage to prevent server-wipe:", localSubs);
+          setSubscriptions(localSubs);
+          // Sync back to the server
+          apiFetch("/api/subscriptions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ subscriptions: localSubs })
+          }).catch(e => console.error("Error syncing subscriptions to server:", e));
+        } else {
           const merged = [...subsData];
           localSubs.forEach((localSub) => {
             if (!merged.some(s => s.name.toLowerCase() === localSub.name.toLowerCase() || s.id === localSub.id)) {
@@ -876,15 +885,16 @@ export default function App() {
             }
           });
           setSubscriptions(merged);
-        } else {
-          setSubscriptions(subsData);
         }
       }
       if (logsRes.ok) {
         const logsData = await logsRes.json();
-        if (firestoreStatus === "fallback") {
-          const saved = localStorage.getItem("subsnap_logs");
-          const localLogs: AuditLog[] = saved ? JSON.parse(saved) : [];
+        const saved = localStorage.getItem("subsnap_logs");
+        const localLogs: AuditLog[] = saved ? JSON.parse(saved) : [];
+        
+        if (logsData.length === 0 && localLogs.length > 0) {
+          setLogs(localLogs);
+        } else {
           const merged = [...logsData];
           localLogs.forEach((localLog) => {
             if (!merged.some(l => l.id === localLog.id)) {
@@ -892,26 +902,22 @@ export default function App() {
             }
           });
           setLogs(merged);
-        } else {
-          setLogs(logsData);
         }
       }
       if (configRes.ok) {
         const configData = await configRes.json();
-        if (firestoreStatus === "fallback") {
-          const saved = localStorage.getItem("subsnap_plaid_config");
-          const localConfig = saved ? JSON.parse(saved) : null;
-          if (localConfig && localConfig.clientId) {
-            setPlaidConfig(localConfig);
-            setIsConfigSaved(true);
-          } else {
-            setPlaidConfig({
-              clientId: configData.clientId || "",
-              secret: configData.secret || "",
-              environment: configData.environment || "sandbox",
-              accessToken: configData.accessToken || "",
-            });
-            setIsConfigSaved(configData.hasCredentials);
+        const saved = localStorage.getItem("subsnap_plaid_config");
+        const localConfig = saved ? JSON.parse(saved) : null;
+        if (localConfig && localConfig.clientId) {
+          setPlaidConfig(localConfig);
+          setIsConfigSaved(true);
+          // Sync config to server if server doesn't have it
+          if (!configData.clientId) {
+            apiFetch("/api/plaid/config", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(localConfig),
+            }).catch(e => console.error("Error syncing plaid config to server:", e));
           }
         } else {
           setPlaidConfig({
@@ -925,9 +931,12 @@ export default function App() {
       }
       if (notifsRes.ok) {
         const notifsData = await notifsRes.json();
-        if (firestoreStatus === "fallback") {
-          const saved = localStorage.getItem("subsnap_notifications");
-          const localNotifs: SystemNotification[] = saved ? JSON.parse(saved) : [];
+        const saved = localStorage.getItem("subsnap_notifications");
+        const localNotifs: SystemNotification[] = saved ? JSON.parse(saved) : [];
+        
+        if (notifsData.length === 0 && localNotifs.length > 0) {
+          setNotifications(localNotifs);
+        } else {
           const merged = [...notifsData];
           localNotifs.forEach((localNotif) => {
             if (!merged.some(n => n.id === localNotif.id)) {
@@ -935,8 +944,6 @@ export default function App() {
             }
           });
           setNotifications(merged);
-        } else {
-          setNotifications(notifsData);
         }
       }
     } catch (err) {
@@ -1468,13 +1475,22 @@ export default function App() {
     if (!silent) setIsSyncing(true);
     try {
       const subsRes = await apiFetch("/api/subscriptions");
-      const firestoreStatus = subsRes.headers.get("X-Firestore-Status") || "success";
-
+      
       if (subsRes.ok) {
         const subsData = await subsRes.json();
-        if (firestoreStatus === "fallback") {
-          const saved = localStorage.getItem("subsnap_subscriptions");
-          const localSubs: Subscription[] = saved ? JSON.parse(saved) : [];
+        const saved = localStorage.getItem("subsnap_subscriptions");
+        const localSubs: Subscription[] = saved ? JSON.parse(saved) : [];
+        
+        if (subsData.length === 0 && localSubs.length > 0) {
+          console.log("[Local Hydration] Hydrating subscriptions in handleSync from localStorage:", localSubs);
+          setSubscriptions(localSubs);
+          // Sync back to the server
+          apiFetch("/api/subscriptions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ subscriptions: localSubs })
+          }).catch(e => console.error("Error syncing subscriptions to server in handleSync:", e));
+        } else {
           const merged = [...subsData];
           localSubs.forEach((localSub) => {
             if (!merged.some(s => s.name.toLowerCase() === localSub.name.toLowerCase() || s.id === localSub.id)) {
@@ -1482,16 +1498,17 @@ export default function App() {
             }
           });
           setSubscriptions(merged);
-        } else {
-          setSubscriptions(subsData);
         }
       }
       const logsRes = await apiFetch("/api/logs");
       if (logsRes.ok) {
         const logsData = await logsRes.json();
-        if (firestoreStatus === "fallback") {
-          const saved = localStorage.getItem("subsnap_logs");
-          const localLogs: AuditLog[] = saved ? JSON.parse(saved) : [];
+        const saved = localStorage.getItem("subsnap_logs");
+        const localLogs: AuditLog[] = saved ? JSON.parse(saved) : [];
+        
+        if (logsData.length === 0 && localLogs.length > 0) {
+          setLogs(localLogs);
+        } else {
           const merged = [...logsData];
           localLogs.forEach((localLog) => {
             if (!merged.some(l => l.id === localLog.id)) {
@@ -1499,16 +1516,17 @@ export default function App() {
             }
           });
           setLogs(merged);
-        } else {
-          setLogs(logsData);
         }
       }
       const notifsRes = await apiFetch("/api/notifications");
       if (notifsRes.ok) {
         const notifsData = await notifsRes.json();
-        if (firestoreStatus === "fallback") {
-          const saved = localStorage.getItem("subsnap_notifications");
-          const localNotifs: SystemNotification[] = saved ? JSON.parse(saved) : [];
+        const saved = localStorage.getItem("subsnap_notifications");
+        const localNotifs: SystemNotification[] = saved ? JSON.parse(saved) : [];
+        
+        if (notifsData.length === 0 && localNotifs.length > 0) {
+          setNotifications(localNotifs);
+        } else {
           const merged = [...notifsData];
           localNotifs.forEach((localNotif) => {
             if (!merged.some(n => n.id === localNotif.id)) {
@@ -1516,12 +1534,10 @@ export default function App() {
             }
           });
           setNotifications(merged);
-        } else {
-          setNotifications(notifsData);
         }
       }
     } catch (err) {
-      console.error("Failed to sync Plaid:", err);
+      console.error("Failed to sync:", err);
     } finally {
       if (!silent) setIsSyncing(false);
     }
