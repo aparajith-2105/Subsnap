@@ -78,6 +78,7 @@ interface UserState {
 }
 
 const userStates = new Map<string, UserState>();
+const firestoreLoadStatus = new Map<string, "success" | "fallback">();
 
 function getInitialSubscriptions(): Subscription[] {
   return [];
@@ -306,14 +307,17 @@ async function getUserStateFromFirestore(email?: string, idToken?: string | null
           if (stateJson) {
             state = JSON.parse(stateJson);
             console.log(`[Firestore SDK] Loaded state successfully for: ${key}`);
+            firestoreLoadStatus.set(key, "success");
             userStates.set(key, state);
             return state;
           }
         } else {
           console.log(`[Firestore SDK] State not found (404) for: ${key}, initializing fresh state.`);
+          firestoreLoadStatus.set(key, "success");
         }
       } catch (sdkErr: any) {
         console.log(`[Firestore SDK] Get failed for user ${key}, trying REST fallback:`, sdkErr?.message || sdkErr);
+        firestoreLoadStatus.set(key, "fallback");
       }
     }
 
@@ -338,9 +342,11 @@ async function getUserStateFromFirestore(email?: string, idToken?: string | null
           if (stateJson) {
             state = JSON.parse(stateJson);
             console.log(`[Firestore REST] Loaded state successfully for: ${key}`);
+            firestoreLoadStatus.set(key, "success");
           }
         } else if (res.status === 404) {
           console.log(`[Firestore REST] State not found (404) for: ${key}, initializing fresh state.`);
+          firestoreLoadStatus.set(key, "success");
         } else if (res.status === 403 && headers["Authorization"]) {
           // Self-healing: if 403 Forbidden and Authorization header was used, retry without Authorization header
           console.warn(`[Firestore REST] Get failed with 403 with Authorization header, retrying without Authorization...`);
@@ -351,19 +357,24 @@ async function getUserStateFromFirestore(email?: string, idToken?: string | null
             if (stateJson) {
               state = JSON.parse(stateJson);
               console.log(`[Firestore REST] Loaded state successfully after stripping Authorization header!`);
+              firestoreLoadStatus.set(key, "success");
             }
           } else if (retryRes.status === 404) {
             console.log(`[Firestore REST] State not found (404) after retry for: ${key}, initializing fresh state.`);
+            firestoreLoadStatus.set(key, "success");
           } else {
             const retryErrText = await retryRes.text();
             console.error(`[Firestore REST] Retry get failed status ${retryRes.status}:`, retryErrText);
+            firestoreLoadStatus.set(key, "fallback");
           }
         } else {
           const errText = await res.text();
           console.warn(`[Firestore REST] Get failed status ${res.status}:`, errText);
+          firestoreLoadStatus.set(key, "fallback");
         }
       } catch (err) {
         console.error(`[Firestore REST] Get failed for user ${key}, falling back to memory:`, err);
+        firestoreLoadStatus.set(key, "fallback");
       }
     }
   }
@@ -414,6 +425,10 @@ app.use(async (req: any, res, next) => {
   req.firebaseIdToken = idToken;
 
   req.userState = await getUserStateFromFirestore(email, idToken);
+
+  const key = email ? (typeof email === "string" ? email.toLowerCase().trim() : "guest") : "guest";
+  const status = firestoreLoadStatus.get(key) || "success";
+  res.setHeader("X-Firestore-Status", status);
 
   // Set up response interception to automatically save state at the end of the request
   const initialJson = JSON.stringify(req.userState);

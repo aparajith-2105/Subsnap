@@ -113,8 +113,22 @@ export default function App() {
       return [];
     }
   });
-  const [logs, setLogs] = useState<AuditLog[]>([]);
-  const [notifications, setNotifications] = useState<SystemNotification[]>([]);
+  const [logs, setLogs] = useState<AuditLog[]>(() => {
+    try {
+      const saved = localStorage.getItem("subsnap_logs");
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [notifications, setNotifications] = useState<SystemNotification[]>(() => {
+    try {
+      const saved = localStorage.getItem("subsnap_notifications");
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
 
   // Authentication Card States (Moved to top to prevent temporal dead zone)
   const [authEmail, setAuthEmail] = useState<string>(() => {
@@ -180,6 +194,22 @@ export default function App() {
       console.error("Failed to save userName to localStorage:", e);
     }
   }, [userName]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("subsnap_logs", JSON.stringify(logs));
+    } catch (e) {
+      console.error("Failed to save logs to localStorage:", e);
+    }
+  }, [logs]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("subsnap_notifications", JSON.stringify(notifications));
+    } catch (e) {
+      console.error("Failed to save notifications to localStorage:", e);
+    }
+  }, [notifications]);
 
   const mergeGuestData = useCallback(async (targetEmail: string) => {
     try {
@@ -610,12 +640,22 @@ export default function App() {
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   
   // Plaid configurations
-  const [plaidConfig, setPlaidConfig] = useState<PlaidConfig>({
-    clientId: "",
-    secret: "",
-    environment: "sandbox",
-    accessToken: "",
+  const [plaidConfig, setPlaidConfig] = useState<PlaidConfig>(() => {
+    try {
+      const saved = localStorage.getItem("subsnap_plaid_config");
+      return saved ? JSON.parse(saved) : { clientId: "", secret: "", environment: "sandbox", accessToken: "" };
+    } catch (e) {
+      return { clientId: "", secret: "", environment: "sandbox", accessToken: "" };
+    }
   });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("subsnap_plaid_config", JSON.stringify(plaidConfig));
+    } catch (e) {
+      console.error("Failed to save plaidConfig to localStorage:", e);
+    }
+  }, [plaidConfig]);
   const [isConfigSaved, setIsConfigSaved] = useState<boolean>(false);
   const [plaidConfigError, setPlaidConfigError] = useState<string | null>(null);
 
@@ -821,27 +861,83 @@ export default function App() {
         apiFetch("/api/notifications")
       ]);
       
+      const firestoreStatus = subsRes.headers.get("X-Firestore-Status") || "success";
+      
       if (subsRes.ok) {
         const subsData = await subsRes.json();
-        setSubscriptions(subsData);
+        if (firestoreStatus === "fallback") {
+          console.warn("Firestore database access is limited/failing on the cloud. Merging with locally cached subscriptions.");
+          const saved = localStorage.getItem("subsnap_subscriptions");
+          const localSubs: Subscription[] = saved ? JSON.parse(saved) : [];
+          const merged = [...subsData];
+          localSubs.forEach((localSub) => {
+            if (!merged.some(s => s.name.toLowerCase() === localSub.name.toLowerCase() || s.id === localSub.id)) {
+              merged.push(localSub);
+            }
+          });
+          setSubscriptions(merged);
+        } else {
+          setSubscriptions(subsData);
+        }
       }
       if (logsRes.ok) {
         const logsData = await logsRes.json();
-        setLogs(logsData);
+        if (firestoreStatus === "fallback") {
+          const saved = localStorage.getItem("subsnap_logs");
+          const localLogs: AuditLog[] = saved ? JSON.parse(saved) : [];
+          const merged = [...logsData];
+          localLogs.forEach((localLog) => {
+            if (!merged.some(l => l.id === localLog.id)) {
+              merged.push(localLog);
+            }
+          });
+          setLogs(merged);
+        } else {
+          setLogs(logsData);
+        }
       }
       if (configRes.ok) {
         const configData = await configRes.json();
-        setPlaidConfig({
-          clientId: configData.clientId || "",
-          secret: configData.secret || "",
-          environment: configData.environment || "sandbox",
-          accessToken: configData.accessToken || "",
-        });
-        setIsConfigSaved(configData.hasCredentials);
+        if (firestoreStatus === "fallback") {
+          const saved = localStorage.getItem("subsnap_plaid_config");
+          const localConfig = saved ? JSON.parse(saved) : null;
+          if (localConfig && localConfig.clientId) {
+            setPlaidConfig(localConfig);
+            setIsConfigSaved(true);
+          } else {
+            setPlaidConfig({
+              clientId: configData.clientId || "",
+              secret: configData.secret || "",
+              environment: configData.environment || "sandbox",
+              accessToken: configData.accessToken || "",
+            });
+            setIsConfigSaved(configData.hasCredentials);
+          }
+        } else {
+          setPlaidConfig({
+            clientId: configData.clientId || "",
+            secret: configData.secret || "",
+            environment: configData.environment || "sandbox",
+            accessToken: configData.accessToken || "",
+          });
+          setIsConfigSaved(configData.hasCredentials);
+        }
       }
       if (notifsRes.ok) {
         const notifsData = await notifsRes.json();
-        setNotifications(notifsData);
+        if (firestoreStatus === "fallback") {
+          const saved = localStorage.getItem("subsnap_notifications");
+          const localNotifs: SystemNotification[] = saved ? JSON.parse(saved) : [];
+          const merged = [...notifsData];
+          localNotifs.forEach((localNotif) => {
+            if (!merged.some(n => n.id === localNotif.id)) {
+              merged.push(localNotif);
+            }
+          });
+          setNotifications(merged);
+        } else {
+          setNotifications(notifsData);
+        }
       }
     } catch (err) {
       console.error("Failed to load dashboard data:", err);
@@ -1372,19 +1468,57 @@ export default function App() {
     if (!silent) setIsSyncing(true);
     try {
       const subsRes = await apiFetch("/api/subscriptions");
+      const firestoreStatus = subsRes.headers.get("X-Firestore-Status") || "success";
+
       if (subsRes.ok) {
         const subsData = await subsRes.json();
-        setSubscriptions(subsData);
+        if (firestoreStatus === "fallback") {
+          const saved = localStorage.getItem("subsnap_subscriptions");
+          const localSubs: Subscription[] = saved ? JSON.parse(saved) : [];
+          const merged = [...subsData];
+          localSubs.forEach((localSub) => {
+            if (!merged.some(s => s.name.toLowerCase() === localSub.name.toLowerCase() || s.id === localSub.id)) {
+              merged.push(localSub);
+            }
+          });
+          setSubscriptions(merged);
+        } else {
+          setSubscriptions(subsData);
+        }
       }
       const logsRes = await apiFetch("/api/logs");
       if (logsRes.ok) {
         const logsData = await logsRes.json();
-        setLogs(logsData);
+        if (firestoreStatus === "fallback") {
+          const saved = localStorage.getItem("subsnap_logs");
+          const localLogs: AuditLog[] = saved ? JSON.parse(saved) : [];
+          const merged = [...logsData];
+          localLogs.forEach((localLog) => {
+            if (!merged.some(l => l.id === localLog.id)) {
+              merged.push(localLog);
+            }
+          });
+          setLogs(merged);
+        } else {
+          setLogs(logsData);
+        }
       }
       const notifsRes = await apiFetch("/api/notifications");
       if (notifsRes.ok) {
         const notifsData = await notifsRes.json();
-        setNotifications(notifsData);
+        if (firestoreStatus === "fallback") {
+          const saved = localStorage.getItem("subsnap_notifications");
+          const localNotifs: SystemNotification[] = saved ? JSON.parse(saved) : [];
+          const merged = [...notifsData];
+          localNotifs.forEach((localNotif) => {
+            if (!merged.some(n => n.id === localNotif.id)) {
+              merged.push(localNotif);
+            }
+          });
+          setNotifications(merged);
+        } else {
+          setNotifications(notifsData);
+        }
       }
     } catch (err) {
       console.error("Failed to sync Plaid:", err);
