@@ -810,7 +810,28 @@ export default function App() {
   };
 
   // VRP Spending Cap and simulated calendar clock states
-  const [simulatedClock, setSimulatedClock] = useState<string>("2026-07-01T12:00");
+  const [isAutoSyncEnabled, setIsAutoSyncEnabled] = useState<boolean>(true);
+  const [simulatedClock, setSimulatedClock] = useState<string>(() => {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  });
+
+  // Keep the calendar clock synchronized automatically with real time
+  useEffect(() => {
+    if (!isAutoSyncEnabled) return;
+
+    const updateClock = () => {
+      const d = new Date();
+      const pad = (n: number) => String(n).padStart(2, "0");
+      setSimulatedClock(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+    };
+
+    updateClock();
+    const interval = setInterval(updateClock, 1000);
+    return () => clearInterval(interval);
+  }, [isAutoSyncEnabled]);
+
   const [showSystemNotice, setShowSystemNotice] = useState<boolean>(true);
   const [simulatedDebitAmount, setSimulatedDebitAmount] = useState<string>("24.99");
   const [debitResponse, setDebitResponse] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -983,6 +1004,7 @@ export default function App() {
           apiFetch("/api/notifications").then(r => r.json())
         ]);
         setSubscriptions(updatedSubs);
+        localStorage.setItem("subsnap_subscriptions", JSON.stringify(updatedSubs));
         setLogs(updatedLogs);
         setNotifications(updatedNotifs);
 
@@ -1012,6 +1034,7 @@ export default function App() {
           apiFetch("/api/notifications").then(r => r.json())
         ]);
         setSubscriptions(updatedSubs);
+        localStorage.setItem("subsnap_subscriptions", JSON.stringify(updatedSubs));
         setLogs(updatedLogs);
         setNotifications(updatedNotifs);
 
@@ -1044,6 +1067,7 @@ export default function App() {
           apiFetch("/api/notifications").then(r => r.json())
         ]);
         setSubscriptions(updatedSubs);
+        localStorage.setItem("subsnap_subscriptions", JSON.stringify(updatedSubs));
         setLogs(updatedLogs);
         setNotifications(updatedNotifs);
 
@@ -1076,6 +1100,7 @@ export default function App() {
           apiFetch("/api/logs").then(r => r.json()),
         ]);
         setSubscriptions(updatedSubs);
+        localStorage.setItem("subsnap_subscriptions", JSON.stringify(updatedSubs));
         setLogs(updatedLogs);
       }
     } catch (err) {
@@ -1391,9 +1416,21 @@ export default function App() {
       if (response.ok) {
         const addedSub = await response.json();
         
+        let addedSubObj: Subscription;
+        if (addedSub && addedSub.subscriptions && Array.isArray(addedSub.subscriptions)) {
+          addedSubObj = addedSub.subscriptions[0];
+        } else if (addedSub && addedSub.success && addedSub.subscription) {
+          addedSubObj = addedSub.subscription;
+        } else {
+          addedSubObj = addedSub;
+        }
+
         // Update local subscriptions state instantly to guarantee immediate dashboard rendering
         setSubscriptions(prev => {
-          const updated = [...prev, addedSub];
+          // Prevent duplicates
+          const exists = prev.some(s => s.id === addedSubObj.id || s.name.toLowerCase() === addedSubObj.name.toLowerCase());
+          if (exists) return prev;
+          const updated = [...prev, addedSubObj];
           localStorage.setItem("subsnap_subscriptions", JSON.stringify(updated));
           return updated;
         });
@@ -1401,6 +1438,7 @@ export default function App() {
         setManualName("");
         setManualAmount("");
         setOnboardingOption("none");
+        setActiveTab("dashboard");
         
         // Fetch fresh logs and notifications to sync the manual-add audit trail
         const [logsRes, notifsRes] = await Promise.all([
@@ -2895,11 +2933,26 @@ export default function App() {
                         <p className="text-[11px] text-slate-400">Shift the timeline manually to trigger proactive alerts and risk countdowns</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 w-full md:w-auto">
+                    <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                      <div className="flex items-center gap-2 bg-slate-900 border border-slate-700/60 px-3 py-2 rounded-lg">
+                        <input
+                          type="checkbox"
+                          id="chk-auto-sync"
+                          checked={isAutoSyncEnabled}
+                          onChange={(e) => setIsAutoSyncEnabled(e.target.checked)}
+                          className="rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 cursor-pointer h-4 w-4 bg-slate-800"
+                        />
+                        <label htmlFor="chk-auto-sync" className="text-[10px] font-mono font-black tracking-wider text-slate-300 uppercase cursor-pointer select-none">
+                          Auto-Sync
+                        </label>
+                      </div>
                       <input
                         type="datetime-local"
                         value={simulatedClock}
-                        onChange={(e) => setSimulatedClock(e.target.value)}
+                        onChange={(e) => {
+                          setSimulatedClock(e.target.value);
+                          setIsAutoSyncEnabled(false);
+                        }}
                         className="bg-slate-900 border border-slate-700 text-white font-mono text-xs px-3 py-2 rounded-lg outline-none focus:border-emerald-500 w-full md:w-auto"
                       />
                       <span className="text-xs text-[#10B981] font-mono font-bold whitespace-nowrap bg-slate-900/60 px-2.5 py-1 rounded border border-emerald-500/30">
