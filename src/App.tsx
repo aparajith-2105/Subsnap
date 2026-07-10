@@ -1085,7 +1085,12 @@ export default function App() {
         } else {
           const merged = [...notifsData];
           localNotifs.forEach((localNotif) => {
-            if (!merged.some(n => n.id === localNotif.id)) {
+            const existingIdx = merged.findIndex(n => n.id === localNotif.id);
+            if (existingIdx !== -1) {
+              if (localNotif.read) {
+                merged[existingIdx].read = true;
+              }
+            } else {
               merged.push(localNotif);
             }
           });
@@ -2057,7 +2062,12 @@ export default function App() {
         } else {
           const merged = [...notifsData];
           localNotifs.forEach((localNotif) => {
-            if (!merged.some(n => n.id === localNotif.id)) {
+            const existingIdx = merged.findIndex(n => n.id === localNotif.id);
+            if (existingIdx !== -1) {
+              if (localNotif.read) {
+                merged[existingIdx].read = true;
+              }
+            } else {
               merged.push(localNotif);
             }
           });
@@ -2260,11 +2270,39 @@ export default function App() {
   // Mark notification as read
   const handleMarkRead = async (id: string) => {
     try {
-      const res = await apiFetch(`/api/notifications/${id}/read`, { method: "POST" });
-      if (res.ok) {
-        const updated = await apiFetch("/api/notifications").then(r => r.json());
-        setNotifications(updated);
-      }
+      // Instantly update local state and localStorage
+      setNotifications(prev => {
+        const updated = prev.map(n => n.id === id ? { ...n, read: true } : n);
+        try {
+          localStorage.setItem("subsnap_notifications", JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
+
+      // Background API sync
+      apiFetch(`/api/notifications/${id}/read`, { method: "POST" })
+        .then(async (res) => {
+          if (res.ok) {
+            try {
+              const updated = await apiFetch("/api/notifications").then(r => r.json());
+              setNotifications(prev => {
+                const merged = [...updated];
+                prev.forEach(p => {
+                  if (!merged.some(n => n.id === p.id)) {
+                    merged.push(p);
+                  }
+                });
+                return merged.map(n => {
+                  const matched = updated.find((un: any) => un.id === n.id);
+                  const isRead = (matched ? matched.read : false) || n.read;
+                  return { ...n, read: isRead };
+                });
+              });
+            } catch (e) {}
+          }
+        })
+        .catch(err => console.error("Failed to read notification background:", err));
+
     } catch (err) {
       console.error("Failed to read notification:", err);
     }
@@ -2273,11 +2311,39 @@ export default function App() {
   // Mark all as read
   const handleMarkAllRead = async () => {
     try {
-      const res = await apiFetch("/api/notifications/read-all", { method: "POST" });
-      if (res.ok) {
-        const updated = await apiFetch("/api/notifications").then(r => r.json());
-        setNotifications(updated);
-      }
+      // Instantly update local state and localStorage
+      setNotifications(prev => {
+        const updated = prev.map(n => ({ ...n, read: true }));
+        try {
+          localStorage.setItem("subsnap_notifications", JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
+
+      // Background API sync
+      apiFetch("/api/notifications/read-all", { method: "POST" })
+        .then(async (res) => {
+          if (res.ok) {
+            try {
+              const updated = await apiFetch("/api/notifications").then(r => r.json());
+              setNotifications(prev => {
+                const merged = [...updated];
+                prev.forEach(p => {
+                  if (!merged.some(n => n.id === p.id)) {
+                    merged.push(p);
+                  }
+                });
+                return merged.map(n => {
+                  const matched = updated.find((un: any) => un.id === n.id);
+                  const isRead = (matched ? matched.read : false) || n.read;
+                  return { ...n, read: isRead };
+                });
+              });
+            } catch (e) {}
+          }
+        })
+        .catch(err => console.error("Failed to mark all as read background:", err));
+
     } catch (err) {
       console.error("Failed to mark all as read:", err);
     }
