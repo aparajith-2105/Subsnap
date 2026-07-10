@@ -1168,86 +1168,112 @@ function fallbackRegexParse(text: string, clientCurrency: string = "USD") {
 
 // Manual Subscription adding and bulk statement ingestion endpoint
 app.post("/api/subscriptions", (req, res) => {
-  const { subscriptions, logs, notifications } = (req as any).userState;
-  const userEmail = (req.headers["x-user-email"] as string) || "guest";
-
-  // Support both single subscription object or array under { subscriptions: [...] }
-  let incoming: any[] = [];
-  if (req.body.subscriptions && Array.isArray(req.body.subscriptions)) {
-    incoming = req.body.subscriptions;
-  } else if (req.body.name) {
-    incoming = [req.body];
-  }
-
-  if (incoming.length === 0) {
-    return res.status(400).json({ error: "Name and amount are required" });
-  }
-
-  const results: Subscription[] = [];
-  const timestamp = new Date().toISOString().replace("T", " ").substring(0, 19);
-
-  for (const item of incoming) {
-    const { name, amount, currency, frequency, category, predictedNextDate, status, billingDetails, lastUsedDaysAgo } = item;
-
-    if (!name || amount === undefined) {
-      continue;
+  try {
+    const userState = (req as any).userState;
+    if (!userState) {
+      console.error("[POST /api/subscriptions] req.userState is undefined!");
+      return res.status(500).json({ error: "Internal server error: User state is uninitialized on server." });
     }
 
-    const subCurrency = currency || "USD";
+    const { subscriptions, logs, notifications } = userState;
+    if (!subscriptions || !logs || !notifications) {
+      console.error("[POST /api/subscriptions] userState is missing lists:", {
+        hasSubs: !!subscriptions,
+        hasLogs: !!logs,
+        hasNotifs: !!notifications
+      });
+      return res.status(500).json({ error: "Internal server error: User state structure is invalid." });
+    }
 
-    const newSub: Subscription = {
-      id: `ingest-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      name: name.trim(),
-      amount: parseFloat(amount) || 0,
-      currency: subCurrency,
-      frequency: frequency || "monthly",
-      category: category || "Other",
-      predictedNextDate: predictedNextDate || new Date().toISOString().split("T")[0],
-      status: status || "active",
-      logoLetter: name.trim().charAt(0).toUpperCase(),
-      billingDetails: billingDetails || `${frequency || "monthly"} stream`,
-      lastUsedDaysAgo: lastUsedDaysAgo !== undefined ? parseInt(lastUsedDaysAgo) : 1,
-      logoUrl: `https://logo.clearbit.com/${name.toLowerCase().replace(/\s+/g, "")}.com`
-    };
+    const userEmail = (req.headers["x-user-email"] as string) || "guest";
 
-    subscriptions.push(newSub);
-    results.push(newSub);
+    // Support both single subscription object or array under { subscriptions: [...] }
+    let incoming: any[] = [];
+    if (req.body.subscriptions && Array.isArray(req.body.subscriptions)) {
+      incoming = req.body.subscriptions;
+    } else if (req.body.name) {
+      incoming = [req.body];
+    }
 
-    // SQL WRITE LOGGING SIMULATION
-    const query = `INSERT INTO recurring_subscriptions (name, amount, currency, frequency, predicted_next_date, category, status) VALUES ('${newSub.name.replace(/'/g, "''")}', ${newSub.amount}, '${newSub.currency}', '${newSub.frequency}', '${newSub.predictedNextDate}', '${newSub.category}', '${newSub.status}');`;
-    console.log(`[POSTGRESQL WRITE] Table 'recurring_subscriptions':\n${query}`);
+    if (incoming.length === 0) {
+      return res.status(400).json({ error: "Name and amount are required" });
+    }
 
-    // Log in Audit Trail with SQL info
-    logs.unshift({
-      id: `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      timestamp: timestamp,
-      action: "SQL_DB_WRITE",
-      details: `Wrote record to PostgreSQL: ${newSub.name} (${newSub.currency} ${newSub.amount.toFixed(2)}). Executed: ${query.substring(0, 80)}...`,
-      status: "SUCCESS"
-    });
+    const results: Subscription[] = [];
+    const timestamp = new Date().toISOString().replace("T", " ").substring(0, 19);
 
-    // Create real-time notification
-    notifications.unshift({
-      id: `notif-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      type: "new_detection",
-      title: "Sovereign Ingestion Logged",
-      message: `Direct input added recurring stream: ${newSub.name} (${getVisualSymbol(newSub.currency)}${newSub.amount.toFixed(2)}/${newSub.frequency}). Clean-path mitigation active.`,
-      timestamp: timestamp,
-      read: false,
-      severity: "low",
-      subId: newSub.id,
-    });
+    for (const item of incoming) {
+      const { name, amount, currency, frequency, category, predictedNextDate, status, billingDetails, lastUsedDaysAgo } = item;
 
-    // Broadcast real-time websocket updates
-    broadcast({
-      type: "new_subscription",
-      subscription: newSub,
-      log: logs[0],
-      notification: notifications[0]
-    }, userEmail);
+      if (!name || amount === undefined) {
+        continue;
+      }
+
+      const nameStr = String(name).trim();
+      if (!nameStr) {
+        continue;
+      }
+
+      const subCurrency = currency || "USD";
+      const amountVal = parseFloat(amount) || 0;
+
+      const newSub: Subscription = {
+        id: `ingest-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        name: nameStr,
+        amount: amountVal,
+        currency: subCurrency,
+        frequency: frequency || "monthly",
+        category: category || "Other",
+        predictedNextDate: predictedNextDate || new Date().toISOString().split("T")[0],
+        status: status || "active",
+        logoLetter: nameStr.charAt(0).toUpperCase(),
+        billingDetails: billingDetails || `${frequency || "monthly"} stream`,
+        lastUsedDaysAgo: lastUsedDaysAgo !== undefined ? parseInt(lastUsedDaysAgo) : 1,
+        logoUrl: `https://logo.clearbit.com/${nameStr.toLowerCase().replace(/\s+/g, "")}.com`
+      };
+
+      subscriptions.push(newSub);
+      results.push(newSub);
+
+      // SQL WRITE LOGGING SIMULATION
+      const query = `INSERT INTO recurring_subscriptions (name, amount, currency, frequency, predicted_next_date, category, status) VALUES ('${newSub.name.replace(/'/g, "''")}', ${newSub.amount}, '${newSub.currency}', '${newSub.frequency}', '${newSub.predictedNextDate}', '${newSub.category}', '${newSub.status}');`;
+      console.log(`[POSTGRESQL WRITE] Table 'recurring_subscriptions':\n${query}`);
+
+      // Log in Audit Trail with SQL info
+      logs.unshift({
+        id: `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        timestamp: timestamp,
+        action: "SQL_DB_WRITE",
+        details: `Wrote record to PostgreSQL: ${newSub.name} (${newSub.currency} ${newSub.amount.toFixed(2)}). Executed: ${query.substring(0, 80)}...`,
+        status: "SUCCESS"
+      });
+
+      // Create real-time notification
+      notifications.unshift({
+        id: `notif-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        type: "new_detection",
+        title: "Sovereign Ingestion Logged",
+        message: `Direct input added recurring stream: ${newSub.name} (${getVisualSymbol(newSub.currency)}${newSub.amount.toFixed(2)}/${newSub.frequency}). Clean-path mitigation active.`,
+        timestamp: timestamp,
+        read: false,
+        severity: "low",
+        subId: newSub.id,
+      });
+
+      // Broadcast real-time websocket updates
+      broadcast({
+        type: "new_subscription",
+        subscription: newSub,
+        log: logs[0],
+        notification: notifications[0]
+      }, userEmail);
+    }
+
+    return res.status(201).json(results.length === 1 ? results[0] : { success: true, subscriptions: results });
+  } catch (err: any) {
+    console.error("[POST /api/subscriptions] Critical error:", err);
+    return res.status(500).json({ error: `Internal server error: ${err?.message || err}` });
   }
-
-  res.status(201).json(results.length === 1 ? results[0] : { success: true, subscriptions: results });
 });
 
 // AI text receipt extraction route

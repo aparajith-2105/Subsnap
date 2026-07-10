@@ -631,6 +631,7 @@ export default function App() {
     new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
   );
   const [manualAddError, setManualAddError] = useState<string | null>(null);
+  const [manualAddSuccess, setManualAddSuccess] = useState<string | null>(null);
 
   // Option D: Receipt Paste
   const [receiptPasteText, setReceiptPasteText] = useState<string>("");
@@ -1395,6 +1396,7 @@ export default function App() {
   const handleManualAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     setManualAddError(null);
+    setManualAddSuccess(null);
     if (!manualName.trim() || !manualAmount.trim()) {
       setManualAddError("Please fill in the merchant name and amount.");
       return;
@@ -1407,55 +1409,84 @@ export default function App() {
         setIsLoading(false);
         return;
       }
-      const newSubObj = {
+
+      const freqMapped = (manualFrequency === "yearly" ? "annual" : manualFrequency) as "monthly" | "annual" | "weekly";
+      const timestamp = new Date().toISOString().replace("T", " ").substring(0, 19);
+
+      const newSub: Subscription = {
+        id: `manual-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         name: manualName.trim(),
         amount: amountVal,
         currency: manualCurrency || "USD",
-        frequency: manualFrequency || "monthly",
+        frequency: freqMapped,
         category: manualCategory || "Other",
         predictedNextDate: manualNextBillingDate || new Date().toISOString().split("T")[0],
+        status: "active",
+        logoLetter: manualName.trim().charAt(0).toUpperCase(),
+        billingDetails: `${manualFrequency === "yearly" ? "yearly" : manualFrequency} stream`,
+        lastUsedDaysAgo: 1,
+        logoUrl: `https://logo.clearbit.com/${manualName.trim().toLowerCase().replace(/\s+/g, "")}.com`
       };
-      const response = await apiFetch("/api/subscriptions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subscriptions: [newSubObj] }),
+
+      const newLog: AuditLog = {
+        id: `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        timestamp: timestamp,
+        action: "MANUAL_ADD",
+        details: `Manually added subscription: ${newSub.name} (${newSub.currency} ${newSub.amount.toFixed(2)})`,
+        status: "SUCCESS"
+      };
+
+      const newNotif: SystemNotification = {
+        id: `notif-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        type: "new_detection",
+        title: "Manual Stream Logged",
+        message: `Direct input added recurring stream: ${newSub.name} (${newSub.currency} ${newSub.amount.toFixed(2)}/${newSub.frequency}).`,
+        timestamp: timestamp,
+        read: false,
+        severity: "low",
+        subId: newSub.id,
+      };
+
+      // Save directly to the app's local React states
+      setSubscriptions(prev => {
+        const exists = prev.some(s => s.id === newSub.id);
+        if (exists) return prev;
+        const updated = [...prev, newSub];
+        try {
+          localStorage.setItem("subsnap_subscriptions", JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
       });
-      if (response.ok) {
-        const addedSub = await response.json();
-        
-        let addedSubObj: Subscription;
-        if (addedSub && addedSub.subscriptions && Array.isArray(addedSub.subscriptions)) {
-          addedSubObj = addedSub.subscriptions[0];
-        } else if (addedSub && addedSub.success && addedSub.subscription) {
-          addedSubObj = addedSub.subscription;
-        } else {
-          addedSubObj = addedSub;
-        }
 
-        // Direct client state update as optimistic update or instant render
-        if (addedSubObj && addedSubObj.id) {
-          setSubscriptions(prev => {
-            const exists = prev.some(s => s.id === addedSubObj.id);
-            if (exists) return prev;
-            const updated = [...prev, addedSubObj];
-            try {
-              localStorage.setItem("subsnap_subscriptions", JSON.stringify(updated));
-            } catch (e) {}
-            return updated;
-          });
-        }
+      setLogs(prev => {
+        const updated = [newLog, ...prev];
+        try {
+          localStorage.setItem("subsnap_logs", JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
 
-        setManualName("");
-        setManualAmount("");
+      setNotifications(prev => {
+        const updated = [newNotif, ...prev];
+        try {
+          localStorage.setItem("subsnap_notifications", JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
+
+      // Clear the form fields
+      setManualName("");
+      setManualAmount("");
+      
+      setManualAddSuccess(`Successfully added subscription stream for "${newSub.name}"!`);
+      
+      // Delay redirection so they can appreciate the green confirmation banner
+      setTimeout(() => {
+        setManualAddSuccess(null);
         setOnboardingOption("none");
         setActiveTab("dashboard");
-        
-        // Refresh all dashboards, logs, and state directly from the backend
-        await fetchData();
-      } else {
-        const err = await response.json().catch(() => ({}));
-        setManualAddError(err.error || "Failed to add subscription on the server.");
-      }
+      }, 1500);
+
     } catch (err: any) {
       console.error("Failed to add subscription:", err);
       setManualAddError(err?.message || "An unexpected error occurred while adding the subscription.");
@@ -4923,6 +4954,13 @@ export default function App() {
                             <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-xs font-medium flex items-center gap-2">
                               <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping shrink-0" />
                               <span>{manualAddError}</span>
+                            </div>
+                          )}
+
+                          {manualAddSuccess && (
+                            <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg text-xs font-medium flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                              <span>{manualAddSuccess}</span>
                             </div>
                           )}
 
