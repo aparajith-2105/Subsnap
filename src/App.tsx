@@ -264,18 +264,53 @@ export default function App() {
     if (bulkSelectedIds.length === 0) return;
     try {
       const subsToCancel = subscriptions.filter(s => bulkSelectedIds.includes(s.id));
-      await Promise.all(bulkSelectedIds.map(async (id) => {
-        await apiFetch(`/api/subscriptions/${id}/cancel`, { method: "POST" });
+      const timestamp = new Date().toISOString().replace("T", " ").substring(0, 19);
+
+      // Create logs and notifications locally
+      const newLogs: AuditLog[] = subsToCancel.map(sub => ({
+        id: `log-${Date.now()}-${Math.floor(Math.random() * 1000)}-${sub.id}`,
+        timestamp: timestamp,
+        action: "CANCEL_STREAM",
+        details: `Bulk cancelled recurring subscription: ${sub.name} (${sub.currency} ${sub.amount.toFixed(2)}). Obligations cleared.`,
+        status: "SUCCESS"
       }));
-      
-      const [updatedSubs, updatedLogs, updatedNotifs] = await Promise.all([
-        apiFetch("/api/subscriptions").then(r => r.json()),
-        apiFetch("/api/logs").then(r => r.json()),
-        apiFetch("/api/notifications").then(r => r.json())
-      ]);
-      setSubscriptions(updatedSubs);
-      setLogs(updatedLogs);
-      setNotifications(updatedNotifs);
+
+      const newNotifs: SystemNotification[] = subsToCancel.map(sub => ({
+        id: `notif-${Date.now()}-${Math.floor(Math.random() * 1000)}-${sub.id}`,
+        type: "new_detection",
+        title: "Subscription Cancelled",
+        message: `Your subscription consent for ${sub.name} has been ended via bulk cancellation.`,
+        timestamp: timestamp,
+        read: false,
+        severity: "low",
+        subId: sub.id,
+      }));
+
+      // Update locally
+      setSubscriptions(prev => {
+        const updated = prev.map(s => bulkSelectedIds.includes(s.id) ? { ...s, status: "cancelled" as const } : s);
+        try {
+          localStorage.setItem("subsnap_subscriptions", JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
+
+      setLogs(prev => {
+        const updated = [...newLogs, ...prev];
+        try {
+          localStorage.setItem("subsnap_logs", JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
+
+      setNotifications(prev => {
+        const updated = [...newNotifs, ...prev];
+        try {
+          localStorage.setItem("subsnap_notifications", JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
+
       setBulkSelectedIds([]);
 
       // Fire webhooks
@@ -286,9 +321,35 @@ export default function App() {
       if (emailPreferences) {
         triggerEmailSimulation(
           "Bulk Subscriptions Cancelled",
-          `A bulk cancellation action was completed for ${bulkSelectedIds.length} subscriptions.`
+          `A bulk cancellation action was completed for ${subsToCancel.length} subscriptions.`
         );
       }
+
+      // Optimistic background sync with the server
+      Promise.all(subsToCancel.map(async (sub) => {
+        await apiFetch(`/api/subscriptions/${sub.id}/cancel`, { method: "POST" }).catch(() => {});
+      })).then(async () => {
+        try {
+          const [updatedSubs, updatedLogs, updatedNotifs] = await Promise.all([
+            apiFetch("/api/subscriptions").then(r => r.json()),
+            apiFetch("/api/logs").then(r => r.json()),
+            apiFetch("/api/notifications").then(r => r.json())
+          ]);
+          setSubscriptions(prev => {
+            const merged = [...updatedSubs];
+            prev.forEach(p => {
+              if (!merged.some(s => s.id === p.id)) {
+                merged.push(p);
+              }
+            });
+            return merged.map(s => {
+              const matched = updatedSubs.find((us: any) => us.id === s.id);
+              return matched ? matched : s;
+            });
+          });
+        } catch (e) {}
+      });
+
     } catch (err) {
       console.error("Error bulk cancelling:", err);
     }
@@ -298,18 +359,53 @@ export default function App() {
     if (bulkSelectedIds.length === 0) return;
     try {
       const subsToRevoke = subscriptions.filter(s => bulkSelectedIds.includes(s.id));
-      await Promise.all(bulkSelectedIds.map(async (id) => {
-        await apiFetch(`/api/subscriptions/${id}/revoke`, { method: "POST" });
+      const timestamp = new Date().toISOString().replace("T", " ").substring(0, 19);
+
+      // Create logs and notifications locally
+      const newLogs: AuditLog[] = subsToRevoke.map(sub => ({
+        id: `log-${Date.now()}-${Math.floor(Math.random() * 1000)}-${sub.id}`,
+        timestamp: timestamp,
+        action: "REVOKE_MANDATE",
+        details: `Bulk revoked VRP payment mandate: ${sub.name} (${sub.currency} ${sub.amount.toFixed(2)}). Central bank token blocked.`,
+        status: "SUCCESS"
       }));
-      
-      const [updatedSubs, updatedLogs, updatedNotifs] = await Promise.all([
-        apiFetch("/api/subscriptions").then(r => r.json()),
-        apiFetch("/api/logs").then(r => r.json()),
-        apiFetch("/api/notifications").then(r => r.json())
-      ]);
-      setSubscriptions(updatedSubs);
-      setLogs(updatedLogs);
-      setNotifications(updatedNotifs);
+
+      const newNotifs: SystemNotification[] = subsToRevoke.map(sub => ({
+        id: `notif-${Date.now()}-${Math.floor(Math.random() * 1000)}-${sub.id}`,
+        type: "new_detection",
+        title: "VRP Mandate Revoked",
+        message: `VRP instant block active on your account for ${sub.name} via bulk revocation.`,
+        timestamp: timestamp,
+        read: false,
+        severity: "medium",
+        subId: sub.id,
+      }));
+
+      // Update locally
+      setSubscriptions(prev => {
+        const updated = prev.map(s => bulkSelectedIds.includes(s.id) ? { ...s, status: "revoked" as const } : s);
+        try {
+          localStorage.setItem("subsnap_subscriptions", JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
+
+      setLogs(prev => {
+        const updated = [...newLogs, ...prev];
+        try {
+          localStorage.setItem("subsnap_logs", JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
+
+      setNotifications(prev => {
+        const updated = [...newNotifs, ...prev];
+        try {
+          localStorage.setItem("subsnap_notifications", JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
+
       setBulkSelectedIds([]);
 
       // Fire webhooks
@@ -320,9 +416,35 @@ export default function App() {
       if (emailPreferences) {
         triggerEmailSimulation(
           "Bulk VRP Mandates Revoked",
-          `Bulk VRP revocation was successfully applied to ${bulkSelectedIds.length} subscriptions.`
+          `Bulk VRP revocation was successfully applied to ${subsToRevoke.length} subscriptions.`
         );
       }
+
+      // Optimistic background sync with the server
+      Promise.all(subsToRevoke.map(async (sub) => {
+        await apiFetch(`/api/subscriptions/${sub.id}/revoke`, { method: "POST" }).catch(() => {});
+      })).then(async () => {
+        try {
+          const [updatedSubs, updatedLogs, updatedNotifs] = await Promise.all([
+            apiFetch("/api/subscriptions").then(r => r.json()),
+            apiFetch("/api/logs").then(r => r.json()),
+            apiFetch("/api/notifications").then(r => r.json())
+          ]);
+          setSubscriptions(prev => {
+            const merged = [...updatedSubs];
+            prev.forEach(p => {
+              if (!merged.some(s => s.id === p.id)) {
+                merged.push(p);
+              }
+            });
+            return merged.map(s => {
+              const matched = updatedSubs.find((us: any) => us.id === s.id);
+              return matched ? matched : s;
+            });
+          });
+        } catch (e) {}
+      });
+
     } catch (err) {
       console.error("Error bulk revoking:", err);
     }
@@ -995,29 +1117,89 @@ export default function App() {
   // Action Handlers
   const handleKeep = async (id: string) => {
     try {
-      const response = await apiFetch(`/api/subscriptions/${id}/keep`, {
-        method: "POST"
-      });
-      if (response.ok) {
-        // Refresh local data
-        const [updatedSubs, updatedLogs, updatedNotifs] = await Promise.all([
-          apiFetch("/api/subscriptions").then(r => r.json()),
-          apiFetch("/api/logs").then(r => r.json()),
-          apiFetch("/api/notifications").then(r => r.json())
-        ]);
-        setSubscriptions(updatedSubs);
-        localStorage.setItem("subsnap_subscriptions", JSON.stringify(updatedSubs));
-        setLogs(updatedLogs);
-        setNotifications(updatedNotifs);
+      const sub = subscriptions.find(s => s.id === id);
+      if (!sub) return;
 
-        // If email notifications are enabled, trigger an email warning log simulation
-        if (emailPreferences) {
-          triggerEmailSimulation(
-            "Guardrail Activated: Keep Subscription",
-            `We registered your decision to keep the subscription for ${updatedSubs.find((s: any) => s.id === id)?.name || "merchant"}. Access remains active without emotional nudging.`
-          );
-        }
+      const timestamp = new Date().toISOString().replace("T", " ").substring(0, 19);
+
+      const newLog: AuditLog = {
+        id: `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        timestamp: timestamp,
+        action: "GUARDRAIL_KEEP",
+        details: `Registered decision to keep subscription: ${sub.name} (${sub.currency} ${sub.amount.toFixed(2)}). Neutral autonomy choice respected.`,
+        status: "SUCCESS"
+      };
+
+      const newNotif: SystemNotification = {
+        id: `notif-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        type: "new_detection",
+        title: "Guardrail Activated: Keep",
+        message: `We registered your decision to keep the subscription for ${sub.name}. Access remains active without emotional nudging.`,
+        timestamp: timestamp,
+        read: false,
+        severity: "low",
+        subId: id,
+      };
+
+      // Update locally first
+      setSubscriptions(prev => {
+        const updated = prev.map(s => s.id === id ? { ...s, status: "keeping" as const } : s);
+        try {
+          localStorage.setItem("subsnap_subscriptions", JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
+
+      setLogs(prev => {
+        const updated = [newLog, ...prev];
+        try {
+          localStorage.setItem("subsnap_logs", JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
+
+      setNotifications(prev => {
+        const updated = [newNotif, ...prev];
+        try {
+          localStorage.setItem("subsnap_notifications", JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
+
+      if (emailPreferences) {
+        triggerEmailSimulation(
+          "Guardrail Activated: Keep Subscription",
+          `We registered your decision to keep the subscription for ${sub.name}. Access remains active without emotional nudging.`
+        );
       }
+
+      // Background API sync
+      apiFetch(`/api/subscriptions/${id}/keep`, { method: "POST" })
+        .then(async (response) => {
+          if (response.ok) {
+            try {
+              const [updatedSubs, updatedLogs, updatedNotifs] = await Promise.all([
+                apiFetch("/api/subscriptions").then(r => r.json()),
+                apiFetch("/api/logs").then(r => r.json()),
+                apiFetch("/api/notifications").then(r => r.json())
+              ]);
+              setSubscriptions(prev => {
+                const merged = [...updatedSubs];
+                prev.forEach(p => {
+                  if (!merged.some(s => s.id === p.id)) {
+                    merged.push(p);
+                  }
+                });
+                return merged.map(s => {
+                  const matched = updatedSubs.find((us: any) => us.id === s.id);
+                  return matched ? matched : s;
+                });
+              });
+            } catch (e) {}
+          }
+        })
+        .catch(err => console.error("Error keeping subscription background:", err));
+
     } catch (err) {
       console.error("Error keeping subscription:", err);
     }
@@ -1025,32 +1207,91 @@ export default function App() {
 
   const handleCancel = async (id: string) => {
     try {
-      const subToCancel = subscriptions.find(s => s.id === id);
-      const response = await apiFetch(`/api/subscriptions/${id}/cancel`, {
-        method: "POST"
+      const sub = subscriptions.find(s => s.id === id);
+      if (!sub) return;
+
+      const timestamp = new Date().toISOString().replace("T", " ").substring(0, 19);
+
+      const newLog: AuditLog = {
+        id: `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        timestamp: timestamp,
+        action: "CANCEL_STREAM",
+        details: `Cancelled recurring subscription: ${sub.name} (${sub.currency} ${sub.amount.toFixed(2)}). Obligations cleared.`,
+        status: "SUCCESS"
+      };
+
+      const newNotif: SystemNotification = {
+        id: `notif-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        type: "new_detection",
+        title: "Subscription Cancelled",
+        message: `Your subscription consent for ${sub.name} has been ended. Active until next billing cycle.`,
+        timestamp: timestamp,
+        read: false,
+        severity: "low",
+        subId: id,
+      };
+
+      // Update locally first
+      setSubscriptions(prev => {
+        const updated = prev.map(s => s.id === id ? { ...s, status: "cancelled" as const } : s);
+        try {
+          localStorage.setItem("subsnap_subscriptions", JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
       });
-      if (response.ok) {
-        const [updatedSubs, updatedLogs, updatedNotifs] = await Promise.all([
-          apiFetch("/api/subscriptions").then(r => r.json()),
-          apiFetch("/api/logs").then(r => r.json()),
-          apiFetch("/api/notifications").then(r => r.json())
-        ]);
-        setSubscriptions(updatedSubs);
-        localStorage.setItem("subsnap_subscriptions", JSON.stringify(updatedSubs));
-        setLogs(updatedLogs);
-        setNotifications(updatedNotifs);
 
-        if (subToCancel) {
-          triggerN8nWebhook(subToCancel);
-        }
+      setLogs(prev => {
+        const updated = [newLog, ...prev];
+        try {
+          localStorage.setItem("subsnap_logs", JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
 
-        if (emailPreferences) {
-          triggerEmailSimulation(
-            "Subscription Cancelled Successfully",
-            `Your subscription consent for ${updatedSubs.find((s: any) => s.id === id)?.name || "merchant"} has been ended. Active until next billing cycle. Obligations are cleared.`
-          );
-        }
+      setNotifications(prev => {
+        const updated = [newNotif, ...prev];
+        try {
+          localStorage.setItem("subsnap_notifications", JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
+
+      triggerN8nWebhook(sub);
+
+      if (emailPreferences) {
+        triggerEmailSimulation(
+          "Subscription Cancelled Successfully",
+          `Your subscription consent for ${sub.name} has been ended. Active until next billing cycle. Obligations are cleared.`
+        );
       }
+
+      // Background API sync
+      apiFetch(`/api/subscriptions/${id}/cancel`, { method: "POST" })
+        .then(async (response) => {
+          if (response.ok) {
+            try {
+              const [updatedSubs, updatedLogs, updatedNotifs] = await Promise.all([
+                apiFetch("/api/subscriptions").then(r => r.json()),
+                apiFetch("/api/logs").then(r => r.json()),
+                apiFetch("/api/notifications").then(r => r.json())
+              ]);
+              setSubscriptions(prev => {
+                const merged = [...updatedSubs];
+                prev.forEach(p => {
+                  if (!merged.some(s => s.id === p.id)) {
+                    merged.push(p);
+                  }
+                });
+                return merged.map(s => {
+                  const matched = updatedSubs.find((us: any) => us.id === s.id);
+                  return matched ? matched : s;
+                });
+              });
+            } catch (e) {}
+          }
+        })
+        .catch(err => console.error("Error cancelling subscription background:", err));
+
     } catch (err) {
       console.error("Error cancelling subscription:", err);
     }
@@ -1058,32 +1299,91 @@ export default function App() {
 
   const handleRevoke = async (id: string) => {
     try {
-      const subToRevoke = subscriptions.find(s => s.id === id);
-      const response = await apiFetch(`/api/subscriptions/${id}/revoke`, {
-        method: "POST"
+      const sub = subscriptions.find(s => s.id === id);
+      if (!sub) return;
+
+      const timestamp = new Date().toISOString().replace("T", " ").substring(0, 19);
+
+      const newLog: AuditLog = {
+        id: `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        timestamp: timestamp,
+        action: "REVOKE_MANDATE",
+        details: `Revoked VRP payment mandate: ${sub.name} (${sub.currency} ${sub.amount.toFixed(2)}). Central bank token blocked.`,
+        status: "SUCCESS"
+      };
+
+      const newNotif: SystemNotification = {
+        id: `notif-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        type: "new_detection",
+        title: "VRP Mandate Revoked",
+        message: `VRP instant block active on your account for ${sub.name}.`,
+        timestamp: timestamp,
+        read: false,
+        severity: "medium",
+        subId: id,
+      };
+
+      // Update locally first
+      setSubscriptions(prev => {
+        const updated = prev.map(s => s.id === id ? { ...s, status: "revoked" as const } : s);
+        try {
+          localStorage.setItem("subsnap_subscriptions", JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
       });
-      if (response.ok) {
-        const [updatedSubs, updatedLogs, updatedNotifs] = await Promise.all([
-          apiFetch("/api/subscriptions").then(r => r.json()),
-          apiFetch("/api/logs").then(r => r.json()),
-          apiFetch("/api/notifications").then(r => r.json())
-        ]);
-        setSubscriptions(updatedSubs);
-        localStorage.setItem("subsnap_subscriptions", JSON.stringify(updatedSubs));
-        setLogs(updatedLogs);
-        setNotifications(updatedNotifs);
 
-        if (subToRevoke) {
-          triggerN8nWebhook(subToRevoke);
-        }
+      setLogs(prev => {
+        const updated = [newLog, ...prev];
+        try {
+          localStorage.setItem("subsnap_logs", JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
 
-        if (emailPreferences) {
-          triggerEmailSimulation(
-            "VRP Payment Mandate Revoked",
-            `VRP instant block active on your account for ${updatedSubs.find((s: any) => s.id === id)?.name || "merchant"}. No further charges can be authorized.`
-          );
-        }
+      setNotifications(prev => {
+        const updated = [newNotif, ...prev];
+        try {
+          localStorage.setItem("subsnap_notifications", JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
+
+      triggerN8nWebhook(sub);
+
+      if (emailPreferences) {
+        triggerEmailSimulation(
+          "VRP Payment Mandate Revoked",
+          `VRP instant block active on your account for ${sub.name}. No further charges can be authorized.`
+        );
       }
+
+      // Background API sync
+      apiFetch(`/api/subscriptions/${id}/revoke`, { method: "POST" })
+        .then(async (response) => {
+          if (response.ok) {
+            try {
+              const [updatedSubs, updatedLogs, updatedNotifs] = await Promise.all([
+                apiFetch("/api/subscriptions").then(r => r.json()),
+                apiFetch("/api/logs").then(r => r.json()),
+                apiFetch("/api/notifications").then(r => r.json())
+              ]);
+              setSubscriptions(prev => {
+                const merged = [...updatedSubs];
+                prev.forEach(p => {
+                  if (!merged.some(s => s.id === p.id)) {
+                    merged.push(p);
+                  }
+                });
+                return merged.map(s => {
+                  const matched = updatedSubs.find((us: any) => us.id === s.id);
+                  return matched ? matched : s;
+                });
+              });
+            } catch (e) {}
+          }
+        })
+        .catch(err => console.error("Error revoking VRP background:", err));
+
     } catch (err) {
       console.error("Error revoking VRP:", err);
     }
@@ -1091,20 +1391,63 @@ export default function App() {
 
   const handleUpdateSpendingCap = async (id: string, limit: number) => {
     try {
-      const res = await apiFetch(`/api/subscriptions/${id}/spending-cap`, {
+      const sub = subscriptions.find(s => s.id === id);
+      if (!sub) return;
+
+      const timestamp = new Date().toISOString().replace("T", " ").substring(0, 19);
+
+      const newLog: AuditLog = {
+        id: `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        timestamp: timestamp,
+        action: "UPDATE_LIMIT",
+        details: `Updated VRP spending ceiling for ${sub.name} to ${sub.currency} ${limit.toFixed(2)}`,
+        status: "SUCCESS"
+      };
+
+      setSubscriptions(prev => {
+        const updated = prev.map(s => s.id === id ? { ...s, spendingCap: limit } : s);
+        try {
+          localStorage.setItem("subsnap_subscriptions", JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
+
+      setLogs(prev => {
+        const updated = [newLog, ...prev];
+        try {
+          localStorage.setItem("subsnap_logs", JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
+
+      // Background API sync
+      apiFetch(`/api/subscriptions/${id}/spending-cap`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ max_amount_per_charge: limit }),
-      });
-      if (res.ok) {
-        const [updatedSubs, updatedLogs] = await Promise.all([
-          apiFetch("/api/subscriptions").then(r => r.json()),
-          apiFetch("/api/logs").then(r => r.json()),
-        ]);
-        setSubscriptions(updatedSubs);
-        localStorage.setItem("subsnap_subscriptions", JSON.stringify(updatedSubs));
-        setLogs(updatedLogs);
-      }
+      }).then(async (res) => {
+        if (res.ok) {
+          try {
+            const [updatedSubs, updatedLogs] = await Promise.all([
+              apiFetch("/api/subscriptions").then(r => r.json()),
+              apiFetch("/api/logs").then(r => r.json()),
+            ]);
+            setSubscriptions(prev => {
+              const merged = [...updatedSubs];
+              prev.forEach(p => {
+                if (!merged.some(s => s.id === p.id)) {
+                  merged.push(p);
+                }
+              });
+              return merged.map(s => {
+                const matched = updatedSubs.find((us: any) => us.id === s.id);
+                return matched ? matched : s;
+              });
+            });
+          } catch (e) {}
+        }
+      }).catch(e => console.error("Error background updating spending cap:", e));
+
     } catch (err) {
       console.error("Error updating spending cap:", err);
     }
@@ -1113,6 +1456,12 @@ export default function App() {
   const handleSimulateDebit = async (id: string, amount: number) => {
     setDebitResponse(null);
     try {
+      const sub = subscriptions.find(s => s.id === id);
+      if (!sub) return;
+
+      const timestamp = new Date().toISOString().replace("T", " ").substring(0, 19);
+
+      // We can make the API call first, because it determines whether it succeeds or gets blocked!
       const res = await apiFetch(`/api/subscriptions/${id}/charge`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1125,9 +1474,36 @@ export default function App() {
         apiFetch("/api/logs").then(r => r.json()),
         apiFetch("/api/notifications").then(r => r.json())
       ]);
-      setSubscriptions(updatedSubs);
-      setLogs(updatedLogs);
-      setNotifications(updatedNotifs);
+      setSubscriptions(prev => {
+        const merged = [...updatedSubs];
+        prev.forEach(p => {
+          if (!merged.some(s => s.id === p.id)) {
+            merged.push(p);
+          }
+        });
+        return merged.map(s => {
+          const matched = updatedSubs.find((us: any) => us.id === s.id);
+          return matched ? matched : s;
+        });
+      });
+      setLogs(prev => {
+        const merged = [...updatedLogs];
+        prev.forEach(p => {
+          if (!merged.some(l => l.id === p.id)) {
+            merged.push(p);
+          }
+        });
+        return merged;
+      });
+      setNotifications(prev => {
+        const merged = [...updatedNotifs];
+        prev.forEach(p => {
+          if (!merged.some(n => n.id === p.id)) {
+            merged.push(p);
+          }
+        });
+        return merged;
+      });
 
       if (res.ok) {
         setDebitResponse({ type: "success", text: `Success: Debit charge of $${amount.toFixed(2)} processed on ledger.` });
@@ -1136,7 +1512,74 @@ export default function App() {
       }
     } catch (err) {
       console.error("Error simulating debit:", err);
-      setDebitResponse({ type: "error", text: "Communication failed with bank gateway router." });
+      // Client-side fallback if the server call is not found (e.g. for a manual subscription)
+      const sub = subscriptions.find(s => s.id === id);
+      if (sub) {
+        // Let's decide client-side if it should pass
+        const isBlocked = sub.status === "cancelled" || sub.status === "revoked";
+        const capExceeded = sub.spendingCap !== undefined && amount > sub.spendingCap;
+
+        const timestamp = new Date().toISOString().replace("T", " ").substring(0, 19);
+
+        if (isBlocked) {
+          const newLog: AuditLog = {
+            id: `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            timestamp: timestamp,
+            action: "CHARGE_BLOCKED",
+            details: `BLOCKED DEBIT: Unilateral block active on ${sub.name} (VRP status: ${sub.status.toUpperCase()}). Charge of ${sub.currency} ${amount.toFixed(2)} was safely suppressed.`,
+            status: "FAILED"
+          };
+          const newNotif: SystemNotification = {
+            id: `notif-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            type: "vrp_revoked",
+            title: "Merchant Charge Blocked",
+            message: `Unilateral block active on ${sub.name}. Prevented charge of ${sub.currency} ${amount.toFixed(2)}.`,
+            timestamp: timestamp,
+            read: false,
+            severity: "high",
+            subId: id,
+          };
+
+          setLogs(prev => [newLog, ...prev]);
+          setNotifications(prev => [newNotif, ...prev]);
+          setDebitResponse({ type: "error", text: `Blocked: Debit charge blocked by unilateral status (${sub.status.toUpperCase()}).` });
+        } else if (capExceeded) {
+          const newLog: AuditLog = {
+            id: `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            timestamp: timestamp,
+            action: "CHARGE_BLOCKED",
+            details: `BLOCKED DEBIT: Spending cap of ${sub.currency} ${sub.spendingCap?.toFixed(2)} exceeded. Prevented charge of ${sub.currency} ${amount.toFixed(2)}.`,
+            status: "FAILED"
+          };
+          const newNotif: SystemNotification = {
+            id: `notif-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            type: "anomaly",
+            title: "Spending Cap Exceeded",
+            message: `Prevented overcharge of ${sub.currency} ${amount.toFixed(2)} from ${sub.name}.`,
+            timestamp: timestamp,
+            read: false,
+            severity: "high",
+            subId: id,
+          };
+
+          setLogs(prev => [newLog, ...prev]);
+          setNotifications(prev => [newNotif, ...prev]);
+          setDebitResponse({ type: "error", text: `Blocked: Debit charge of $${amount.toFixed(2)} exceeds VRP ceiling rules ($${sub.spendingCap?.toFixed(2)}).` });
+        } else {
+          // Success
+          const newLog: AuditLog = {
+            id: `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            timestamp: timestamp,
+            action: "CHARGE_SUCCESS",
+            details: `PROCESSED DEBIT: Authorized debit charge of ${sub.currency} ${amount.toFixed(2)} for ${sub.name}.`,
+            status: "SUCCESS"
+          };
+          setLogs(prev => [newLog, ...prev]);
+          setDebitResponse({ type: "success", text: `Success: Debit charge of $${amount.toFixed(2)} processed on ledger.` });
+        }
+      } else {
+        setDebitResponse({ type: "error", text: "Communication failed with bank gateway router." });
+      }
     }
   };
 
