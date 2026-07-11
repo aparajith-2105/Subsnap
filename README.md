@@ -2,10 +2,11 @@
 > **Deployed Live at:** [subsnap.vercel.app](https://vercel.app)  
 > **Built with:** Google AI Studio (Gemini 3.5 Flash) & Google Stitch  
 
-![License](https://shields.io)
-![React](https://shields.io)
-![Tailwind](https://shields.io)
-![Automation](https://shields.io)
+* **Framework:** React + TypeScript + Vite
+* **Styling:** Tailwind CSS Utilities
+* **Automation Backend:** n8n Cloud Webhooks
+* **Core Intelligence:** Google AI Studio (Gemini 3.5 Flash)
+
 
 SubSnap is a robust fintech web application designed as an architectural response to **subscription leakage**—the systemic erosion of consumer capital through unintended recurring charges. Grounded in 2026 multi-jurisdictional regulatory frameworks and peer-reviewed behavioral economics research, SubSnap replaces manipulative retention-first dark patterns with transparent, bank-level consumer control.
 
