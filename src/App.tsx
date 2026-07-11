@@ -241,6 +241,26 @@ export default function App() {
     return () => unsubscribe();
   }, [mergeGuestData]);
 
+  // Google OAuth popup callback detector: runs if this window itself is the redirect popup
+  useEffect(() => {
+    try {
+      const hash = window.location.hash;
+      if (hash && hash.includes("access_token=")) {
+        const params = new URLSearchParams(hash.substring(1));
+        const token = params.get("access_token");
+        const state = params.get("state");
+        if (token && (state === "subsnap_gmail_auth" || hash.includes("gmail.send") || hash.includes("state=subsnap_gmail_auth"))) {
+          if (window.opener) {
+            window.opener.postMessage({ type: "GOOGLE_GMAIL_OAUTH_SUCCESS", token }, "*");
+            window.close();
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Error in OAuth popup handler:", e);
+    }
+  }, []);
+
   // New features states
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const [bulkSelectedIds, setBulkSelectedIds] = useState<string[]>([]);
@@ -646,11 +666,90 @@ export default function App() {
     } catch (e) {
       console.error("Error setting Authorization header:", e);
     }
-    return fetch(input, {
+    const response = await fetch(input, {
       ...targetInit,
       headers,
     });
+
+    // Make response.json() robust against non-JSON or HTML responses
+    const originalJson = response.json.bind(response);
+    response.json = async () => {
+      const contentType = response.headers.get("content-type");
+      if (contentType && !contentType.includes("application/json")) {
+        const text = await response.text().catch(() => "");
+        if (text.trim().startsWith("<")) {
+          console.warn(`[Safe API Fetch] Expected JSON but received HTML from ${input}`);
+          const urlStr = typeof input === "string" ? input : "";
+          if (urlStr.includes("subscriptions") || urlStr.includes("logs") || urlStr.includes("notifications")) {
+            return [];
+          }
+          return {};
+        }
+        try {
+          return JSON.parse(text);
+        } catch (e) {
+          return {};
+        }
+      }
+      try {
+        const data = await originalJson();
+        return data;
+      } catch (err) {
+        const text = await response.text().catch(() => "");
+        if (text.trim().startsWith("<")) {
+          console.warn(`[Safe API Fetch] JSON parsing failed, response starts with HTML from ${input}`);
+          const urlStr = typeof input === "string" ? input : "";
+          if (urlStr.includes("subscriptions") || urlStr.includes("logs") || urlStr.includes("notifications")) {
+            return [];
+          }
+          return {};
+        }
+        try {
+          return JSON.parse(text);
+        } catch (e) {
+          return {};
+        }
+      }
+    };
+
+    return response;
   }, []);
+
+  // Listen for Google OAuth callback messages from the popup
+  useEffect(() => {
+    const handleOAuthMessage = (event: MessageEvent) => {
+      if (event.data?.type === "GOOGLE_GMAIL_OAUTH_SUCCESS") {
+        const token = event.data.token;
+        if (token) {
+          setGoogleAccessToken(token);
+          try {
+            localStorage.setItem("subsnap_google_access_token", token);
+          } catch (e) {}
+          setIsGoogleAuthLoading(false);
+          setAuthMessage({
+            type: "success",
+            text: "Successfully connected to Google Workspace! Real Gmail alerts are now enabled."
+          });
+          
+          // Sync with server or dispatch a test email to alert that Gmail is connected
+          const targetEmail = authEmail || "abc@gmail.com";
+          apiFetch("/api/notifications/simulate-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+              email: targetEmail,
+              isRealGmail: true,
+              subject: "OAuth Link Established",
+              details: `Secure Google OAuth link established with Gmail permissions for ${targetEmail}.`
+            })
+          }).catch(err => console.error("Failed to notify server of gmail connection", err));
+        }
+      }
+    };
+
+    window.addEventListener("message", handleOAuthMessage);
+    return () => window.removeEventListener("message", handleOAuthMessage);
+  }, [authEmail, apiFetch]);
 
   const wsUrl = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}?email=${encodeURIComponent(isLoggedIn && authEmail ? authEmail : "guest")}`;
 
@@ -1724,6 +1823,46 @@ export default function App() {
       });
     } finally {
       setIsGoogleAuthLoading(false);
+    }
+  };
+
+  const handleEnableRealGmailAlerts = async () => {
+    setIsGoogleAuthLoading(true);
+    setAuthMessage(null);
+    try {
+      const clientId = "147218521286-tpccp1eeec7afhs1ulrtrbu39nfk5cio.apps.googleusercontent.com";
+      const redirectUri = window.location.origin;
+      
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` + new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        response_type: "token",
+        scope: "https://www.googleapis.com/auth/gmail.send",
+        include_granted_scopes: "true",
+        state: "subsnap_gmail_auth"
+      }).toString();
+
+      const width = 600;
+      const height = 650;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+      const popup = window.open(
+        authUrl,
+        "google_gmail_oauth_popup",
+        `width=${width},height=${height},left=${left},top=${top}`
+      );
+
+      if (!popup) {
+        alert("Please allow popups to connect your Google Workspace Gmail account.");
+        setIsGoogleAuthLoading(false);
+      }
+    } catch (err: any) {
+      console.error("Gmail OAuth setup initiation failed:", err);
+      setIsGoogleAuthLoading(false);
+      setAuthMessage({
+        type: "error",
+        text: err.message || "Failed to initiate Gmail authentication."
+      });
     }
   };
 
@@ -4953,7 +5092,7 @@ export default function App() {
                             <div className="space-y-2">
                               <button
                                 type="button"
-                                onClick={handleGoogleSignIn}
+                                onClick={handleEnableRealGmailAlerts}
                                 disabled={isGoogleAuthLoading}
                                 className="w-full py-2 bg-white text-slate-800 hover:bg-slate-50 border border-slate-300 rounded font-bold text-[10px] uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-transform active:scale-[0.98]"
                               >

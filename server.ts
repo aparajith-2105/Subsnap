@@ -1399,6 +1399,18 @@ async function startServer() {
     clearInterval(interval);
   });
 
+  // Global Express error handling middleware for API routes to return clean JSON errors instead of HTML
+  app.use((err: any, req: any, res: any, next: any) => {
+    console.error("[Global Error Handler]", err);
+    if (res.headersSent) {
+      return next(err);
+    }
+    res.status(err.status || 500).json({
+      error: "Internal Server Error",
+      message: err.message || String(err),
+    });
+  });
+
   // Vite integration
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
