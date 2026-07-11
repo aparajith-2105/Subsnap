@@ -104,6 +104,63 @@ function DescriptiveTooltip({ text, children, position = "top", className = "inl
   );
 }
 
+const safeMergeSubscriptions = (prev: Subscription[], updatedSubs: any): Subscription[] => {
+  if (!Array.isArray(prev)) prev = [];
+  if (!Array.isArray(updatedSubs)) return prev;
+  const merged = [...updatedSubs];
+  prev.forEach(p => {
+    if (p && p.id && !merged.some(s => s && s.id === p.id)) {
+      merged.push(p);
+    }
+  });
+  return merged.map(s => {
+    if (!s) return s;
+    const matched = updatedSubs.find((us: any) => us && us.id === s.id);
+    return matched ? matched : s;
+  }).filter(Boolean);
+};
+
+const safeMergeLogs = (prev: AuditLog[], updatedLogs: any): AuditLog[] => {
+  if (!Array.isArray(prev)) prev = [];
+  if (!Array.isArray(updatedLogs)) return prev;
+  const merged = [...updatedLogs];
+  prev.forEach(p => {
+    if (p && p.id && !merged.some(l => l && l.id === p.id)) {
+      merged.push(p);
+    }
+  });
+  return merged.filter(Boolean);
+};
+
+const safeMergeNotifications = (prev: SystemNotification[], updatedNotifs: any): SystemNotification[] => {
+  if (!Array.isArray(prev)) prev = [];
+  if (!Array.isArray(updatedNotifs)) return prev;
+  const merged = [...updatedNotifs];
+  prev.forEach(p => {
+    if (p && p.id && !merged.some(n => n && n.id === p.id)) {
+      merged.push(p);
+    }
+  });
+  return merged.filter(Boolean);
+};
+
+const safeMergeNotificationsWithRead = (prev: SystemNotification[], updatedNotifs: any): SystemNotification[] => {
+  if (!Array.isArray(prev)) prev = [];
+  if (!Array.isArray(updatedNotifs)) return prev;
+  const merged = [...updatedNotifs];
+  prev.forEach(p => {
+    if (p && p.id && !merged.some(n => n && n.id === p.id)) {
+      merged.push(p);
+    }
+  });
+  return merged.map(n => {
+    if (!n) return n;
+    const matched = updatedNotifs.find((un: any) => un && un.id === n.id);
+    const isRead = (matched ? matched.read : false) || n.read;
+    return { ...n, read: isRead };
+  }).filter(Boolean);
+};
+
 export default function App() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>(() => {
     try {
@@ -355,18 +412,7 @@ export default function App() {
             apiFetch("/api/logs").then(r => r.json()),
             apiFetch("/api/notifications").then(r => r.json())
           ]);
-          setSubscriptions(prev => {
-            const merged = [...updatedSubs];
-            prev.forEach(p => {
-              if (!merged.some(s => s.id === p.id)) {
-                merged.push(p);
-              }
-            });
-            return merged.map(s => {
-              const matched = updatedSubs.find((us: any) => us.id === s.id);
-              return matched ? matched : s;
-            });
-          });
+          setSubscriptions(prev => safeMergeSubscriptions(prev, updatedSubs));
         } catch (e) {}
       });
 
@@ -450,18 +496,7 @@ export default function App() {
             apiFetch("/api/logs").then(r => r.json()),
             apiFetch("/api/notifications").then(r => r.json())
           ]);
-          setSubscriptions(prev => {
-            const merged = [...updatedSubs];
-            prev.forEach(p => {
-              if (!merged.some(s => s.id === p.id)) {
-                merged.push(p);
-              }
-            });
-            return merged.map(s => {
-              const matched = updatedSubs.find((us: any) => us.id === s.id);
-              return matched ? matched : s;
-            });
-          });
+          setSubscriptions(prev => safeMergeSubscriptions(prev, updatedSubs));
         } catch (e) {}
       });
 
@@ -1287,18 +1322,7 @@ export default function App() {
                 apiFetch("/api/logs").then(r => r.json()),
                 apiFetch("/api/notifications").then(r => r.json())
               ]);
-              setSubscriptions(prev => {
-                const merged = [...updatedSubs];
-                prev.forEach(p => {
-                  if (!merged.some(s => s.id === p.id)) {
-                    merged.push(p);
-                  }
-                });
-                return merged.map(s => {
-                  const matched = updatedSubs.find((us: any) => us.id === s.id);
-                  return matched ? matched : s;
-                });
-              });
+              setSubscriptions(prev => safeMergeSubscriptions(prev, updatedSubs));
             } catch (e) {}
           }
         })
@@ -1379,18 +1403,7 @@ export default function App() {
                 apiFetch("/api/logs").then(r => r.json()),
                 apiFetch("/api/notifications").then(r => r.json())
               ]);
-              setSubscriptions(prev => {
-                const merged = [...updatedSubs];
-                prev.forEach(p => {
-                  if (!merged.some(s => s.id === p.id)) {
-                    merged.push(p);
-                  }
-                });
-                return merged.map(s => {
-                  const matched = updatedSubs.find((us: any) => us.id === s.id);
-                  return matched ? matched : s;
-                });
-              });
+              setSubscriptions(prev => safeMergeSubscriptions(prev, updatedSubs));
             } catch (e) {}
           }
         })
@@ -1471,18 +1484,7 @@ export default function App() {
                 apiFetch("/api/logs").then(r => r.json()),
                 apiFetch("/api/notifications").then(r => r.json())
               ]);
-              setSubscriptions(prev => {
-                const merged = [...updatedSubs];
-                prev.forEach(p => {
-                  if (!merged.some(s => s.id === p.id)) {
-                    merged.push(p);
-                  }
-                });
-                return merged.map(s => {
-                  const matched = updatedSubs.find((us: any) => us.id === s.id);
-                  return matched ? matched : s;
-                });
-              });
+              setSubscriptions(prev => safeMergeSubscriptions(prev, updatedSubs));
             } catch (e) {}
           }
         })
@@ -1536,18 +1538,7 @@ export default function App() {
               apiFetch("/api/subscriptions").then(r => r.json()),
               apiFetch("/api/logs").then(r => r.json()),
             ]);
-            setSubscriptions(prev => {
-              const merged = [...updatedSubs];
-              prev.forEach(p => {
-                if (!merged.some(s => s.id === p.id)) {
-                  merged.push(p);
-                }
-              });
-              return merged.map(s => {
-                const matched = updatedSubs.find((us: any) => us.id === s.id);
-                return matched ? matched : s;
-              });
-            });
+            setSubscriptions(prev => safeMergeSubscriptions(prev, updatedSubs));
           } catch (e) {}
         }
       }).catch(e => console.error("Error background updating spending cap:", e));
@@ -1578,36 +1569,9 @@ export default function App() {
         apiFetch("/api/logs").then(r => r.json()),
         apiFetch("/api/notifications").then(r => r.json())
       ]);
-      setSubscriptions(prev => {
-        const merged = [...updatedSubs];
-        prev.forEach(p => {
-          if (!merged.some(s => s.id === p.id)) {
-            merged.push(p);
-          }
-        });
-        return merged.map(s => {
-          const matched = updatedSubs.find((us: any) => us.id === s.id);
-          return matched ? matched : s;
-        });
-      });
-      setLogs(prev => {
-        const merged = [...updatedLogs];
-        prev.forEach(p => {
-          if (!merged.some(l => l.id === p.id)) {
-            merged.push(p);
-          }
-        });
-        return merged;
-      });
-      setNotifications(prev => {
-        const merged = [...updatedNotifs];
-        prev.forEach(p => {
-          if (!merged.some(n => n.id === p.id)) {
-            merged.push(p);
-          }
-        });
-        return merged;
-      });
+      setSubscriptions(prev => safeMergeSubscriptions(prev, updatedSubs));
+      setLogs(prev => safeMergeLogs(prev, updatedLogs));
+      setNotifications(prev => safeMergeNotifications(prev, updatedNotifs));
 
       if (res.ok) {
         setDebitResponse({ type: "success", text: `Success: Debit charge of $${amount.toFixed(2)} processed on ledger.` });
@@ -2424,19 +2388,7 @@ export default function App() {
           if (res.ok) {
             try {
               const updated = await apiFetch("/api/notifications").then(r => r.json());
-              setNotifications(prev => {
-                const merged = [...updated];
-                prev.forEach(p => {
-                  if (!merged.some(n => n.id === p.id)) {
-                    merged.push(p);
-                  }
-                });
-                return merged.map(n => {
-                  const matched = updated.find((un: any) => un.id === n.id);
-                  const isRead = (matched ? matched.read : false) || n.read;
-                  return { ...n, read: isRead };
-                });
-              });
+              setNotifications(prev => safeMergeNotificationsWithRead(prev, updated));
             } catch (e) {}
           }
         })
@@ -2465,19 +2417,7 @@ export default function App() {
           if (res.ok) {
             try {
               const updated = await apiFetch("/api/notifications").then(r => r.json());
-              setNotifications(prev => {
-                const merged = [...updated];
-                prev.forEach(p => {
-                  if (!merged.some(n => n.id === p.id)) {
-                    merged.push(p);
-                  }
-                });
-                return merged.map(n => {
-                  const matched = updated.find((un: any) => un.id === n.id);
-                  const isRead = (matched ? matched.read : false) || n.read;
-                  return { ...n, read: isRead };
-                });
-              });
+              setNotifications(prev => safeMergeNotificationsWithRead(prev, updated));
             } catch (e) {}
           }
         })
