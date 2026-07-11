@@ -109,8 +109,8 @@ export default function ResearchShowcase({ currencySymbol = "£" }: { currencySy
                 margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
-                <XAxis dataKey="day" stroke="#475569" fontSize={10} fontClassName="font-mono" />
-                <YAxis stroke="#475569" fontSize={10} fontClassName="font-mono" />
+                <XAxis dataKey="day" stroke="#475569" fontSize={10} className="font-mono" />
+                <YAxis stroke="#475569" fontSize={10} className="font-mono" />
                 <Tooltip 
                   contentStyle={{ 
                     backgroundColor: "#0F172A", 

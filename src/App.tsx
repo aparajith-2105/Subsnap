@@ -348,7 +348,7 @@ export default function App() {
         id: `log-${Date.now()}-${Math.floor(Math.random() * 1000)}-${sub.id}`,
         timestamp: timestamp,
         action: "CANCEL_STREAM",
-        details: `Bulk cancelled recurring subscription: ${sub.name} (${sub.currency} ${sub.amount.toFixed(2)}). Obligations cleared.`,
+        details: `Bulk cancelled recurring subscription: ${sub.name} (${sub.currency} ${Number(sub.amount ?? 0).toFixed(2)}). Obligations cleared.`,
         status: "SUCCESS"
       }));
 
@@ -432,7 +432,7 @@ export default function App() {
         id: `log-${Date.now()}-${Math.floor(Math.random() * 1000)}-${sub.id}`,
         timestamp: timestamp,
         action: "REVOKE_MANDATE",
-        details: `Bulk revoked VRP payment mandate: ${sub.name} (${sub.currency} ${sub.amount.toFixed(2)}). Central bank token blocked.`,
+        details: `Bulk revoked VRP payment mandate: ${sub.name} (${sub.currency} ${Number(sub.amount ?? 0).toFixed(2)}). Central bank token blocked.`,
         status: "SUCCESS"
       }));
 
@@ -512,7 +512,7 @@ export default function App() {
     let txt = `📊 SubSnap Subscription Summary:\n`;
     txt += `Active Streams: ${activeSubs.length} | Monthly Spend: ${currencySymbol}${totalSpend.toFixed(2)}\n\n`;
     activeSubs.forEach((s) => {
-      txt += `• ${s.name}: ${currencySymbol}${s.amount}/${s.billingCycle} (Next: ${new Date(s.predictedNextDate).toLocaleDateString()})\n`;
+      txt += `• ${s.name}: ${currencySymbol}${s.amount}/${s.frequency} (Next: ${new Date(s.predictedNextDate).toLocaleDateString()})\n`;
     });
     txt += `\nTracked securely with SubSnap Leakage Prevention Engine.`;
     return txt;
@@ -529,7 +529,7 @@ export default function App() {
         },
         body: JSON.stringify({
           subscription: sub.name,
-          amount: sub.amount.toString(),
+          amount: (sub.amount ?? 0).toString(),
           date: new Date().toISOString().substring(0, 10),
           currency: currency
         }),
@@ -1265,7 +1265,7 @@ export default function App() {
         id: `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         timestamp: timestamp,
         action: "GUARDRAIL_KEEP",
-        details: `Registered decision to keep subscription: ${sub.name} (${sub.currency} ${sub.amount.toFixed(2)}). Neutral autonomy choice respected.`,
+        details: `Registered decision to keep subscription: ${sub.name} (${sub.currency} ${Number(sub.amount ?? 0).toFixed(2)}). Neutral autonomy choice respected.`,
         status: "SUCCESS"
       };
 
@@ -1344,7 +1344,7 @@ export default function App() {
         id: `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         timestamp: timestamp,
         action: "CANCEL_STREAM",
-        details: `Cancelled recurring subscription: ${sub.name} (${sub.currency} ${sub.amount.toFixed(2)}). Obligations cleared.`,
+        details: `Cancelled recurring subscription: ${sub.name} (${sub.currency} ${Number(sub.amount ?? 0).toFixed(2)}). Obligations cleared.`,
         status: "SUCCESS"
       };
 
@@ -1425,7 +1425,7 @@ export default function App() {
         id: `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         timestamp: timestamp,
         action: "REVOKE_MANDATE",
-        details: `Revoked VRP payment mandate: ${sub.name} (${sub.currency} ${sub.amount.toFixed(2)}). Central bank token blocked.`,
+        details: `Revoked VRP payment mandate: ${sub.name} (${sub.currency} ${Number(sub.amount ?? 0).toFixed(2)}). Central bank token blocked.`,
         status: "SUCCESS"
       };
 
@@ -1585,7 +1585,7 @@ export default function App() {
       if (sub) {
         // Let's decide client-side if it should pass
         const isBlocked = sub.status === "cancelled" || sub.status === "revoked";
-        const capExceeded = sub.spendingCap !== undefined && amount > sub.spendingCap;
+        const capExceeded = sub.max_amount_per_charge !== undefined && amount > sub.max_amount_per_charge;
 
         const timestamp = new Date().toISOString().replace("T", " ").substring(0, 19);
 
@@ -1616,7 +1616,7 @@ export default function App() {
             id: `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
             timestamp: timestamp,
             action: "CHARGE_BLOCKED",
-            details: `BLOCKED DEBIT: Spending cap of ${sub.currency} ${sub.spendingCap?.toFixed(2)} exceeded. Prevented charge of ${sub.currency} ${amount.toFixed(2)}.`,
+            details: `BLOCKED DEBIT: Spending cap of ${sub.currency} ${sub.max_amount_per_charge?.toFixed(2)} exceeded. Prevented charge of ${sub.currency} ${amount.toFixed(2)}.`,
             status: "FAILED"
           };
           const newNotif: SystemNotification = {
@@ -1632,7 +1632,7 @@ export default function App() {
 
           setLogs(prev => [newLog, ...prev]);
           setNotifications(prev => [newNotif, ...prev]);
-          setDebitResponse({ type: "error", text: `Blocked: Debit charge of $${amount.toFixed(2)} exceeds VRP ceiling rules ($${sub.spendingCap?.toFixed(2)}).` });
+          setDebitResponse({ type: "error", text: `Blocked: Debit charge of $${amount.toFixed(2)} exceeds VRP ceiling rules ($${sub.max_amount_per_charge?.toFixed(2)}).` });
         } else {
           // Success
           const newLog: AuditLog = {
@@ -3120,7 +3120,7 @@ export default function App() {
 
             {/* Sync Trigger button */}
             <button 
-              onClick={handleSync}
+              onClick={() => handleSync()}
               disabled={isSyncing}
               className="p-2 bg-white border border-[#475569]/30 hover:border-[#475569] text-[#0F172A] rounded-lg transition-all disabled:opacity-50 hover:bg-slate-50 flex items-center gap-1.5 text-xs font-bold shadow-sm"
               title="Manual Plaid stream refresh"
@@ -5027,6 +5027,16 @@ export default function App() {
                               <span className="font-bold text-emerald-400 font-mono">FTC PASSED</span>
                             </div>
                           </div>
+
+                          {authMessage && (
+                            <div className={`p-3 rounded text-[11px] font-mono border ${
+                              authMessage.type === "success" 
+                                ? "bg-emerald-950/40 border-emerald-500/30 text-emerald-400" 
+                                : "bg-rose-950/40 border-rose-500/30 text-rose-400"
+                            }`}>
+                              {authMessage.text}
+                            </div>
+                          )}
 
                           {!googleAccessToken && (
                             <div className="space-y-2">

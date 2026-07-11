@@ -235,8 +235,8 @@ export default function LeakageCostCalculator({ currencySymbol = "$" }: { curren
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                  <XAxis dataKey="year" stroke="#475569" fontSize={10} fontClassName="font-mono" />
-                  <YAxis stroke="#475569" fontSize={10} fontClassName="font-mono" />
+                  <XAxis dataKey="year" stroke="#475569" fontSize={10} className="font-mono" />
+                  <YAxis stroke="#475569" fontSize={10} className="font-mono" />
                   <Tooltip 
                     contentStyle={{ 
                       backgroundColor: "#0F172A", 

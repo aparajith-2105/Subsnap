@@ -34,18 +34,22 @@ export function getCurrencySymbol(code: string): string {
   return match ? match.symbol : "$";
 }
 
-export function convertCurrency(amount: number, fromCode: string, toCode: string): number {
-  const fromRate = EXCHANGE_RATES[fromCode.toUpperCase()] || 1.0;
-  const toRate = EXCHANGE_RATES[toCode.toUpperCase()] || 1.0;
-  return (amount / fromRate) * toRate;
+export function convertCurrency(amount: number | undefined | null, fromCode: string, toCode: string): number {
+  const num = typeof amount === "number" ? amount : parseFloat(amount as any);
+  if (isNaN(num)) return 0;
+  const fromRate = EXCHANGE_RATES[(fromCode || "USD").toUpperCase()] || 1.0;
+  const toRate = EXCHANGE_RATES[(toCode || "USD").toUpperCase()] || 1.0;
+  return (num / fromRate) * toRate;
 }
 
-export function formatCurrency(amount: number, code: string): string {
-  const symbol = getCurrencySymbol(code);
+export function formatCurrency(amount: number | undefined | null, code: string): string {
+  const symbol = getCurrencySymbol(code || "USD");
+  const num = typeof amount === "number" ? amount : parseFloat(amount as any);
+  if (isNaN(num)) return `${symbol}0.00`;
   if (code === "JPY") {
-    return `${symbol}${Math.round(amount).toLocaleString()}`;
+    return `${symbol}${Math.round(num).toLocaleString()}`;
   }
-  return `${symbol}${amount.toFixed(2)}`;
+  return `${symbol}${num.toFixed(2)}`;
 }
 
 export function formatNotificationMessage(msg: string, targetCurrency: string): string {
