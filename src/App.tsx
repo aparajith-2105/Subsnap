@@ -63,7 +63,7 @@ import { Subscription, AuditLog, PlaidConfig, SystemNotification } from "./types
 import MerchantLogo from "./components/MerchantLogo";
 import { SUPPORTED_CURRENCIES, getCurrencySymbol, formatCurrency, convertCurrency, formatNotificationMessage } from "./currencyUtils";
 import { useWebSocket } from "./useWebSocket";
-import { googleSignIn, logout as googleLogout, initAuth, getAccessToken, getFirebaseIdToken } from "./firebase";
+import { googleSignIn, logout as googleLogout, initAuth, getAccessToken, getFirebaseIdToken, emailSignUp, emailSignIn } from "./firebase";
 
 const PIE_COLORS = ["#0F172A", "#6366F1", "#10B981", "#EF4444", "#F59E0B", "#06B6D4", "#F43F5E"];
 
@@ -1702,36 +1702,47 @@ export default function App() {
     }
 
     try {
-      const res = await apiFetch("/api/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: authEmail,
-          password: authPassword,
-          name: authName
-        })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        await mergeGuestData(data.email);
-        setIsLoggedIn(true);
-        setAuthEmail(data.email);
-        setUserName(data.name);
-        setAuthMessage({ type: "success", text: `Registration successful! Account [${data.email}] secured with cryptographic tokens.` });
-        setActiveTab("dashboard");
-        await fetchData();
-      } else {
-        setAuthMessage({ type: "error", text: data.error || "Registration failed." });
+      // 1. Sign up on Firebase Auth using the SDK with the new config
+      const fbUser = await emailSignUp(authEmail, authPassword, authName);
+      
+      // 2. Register on local backend to trigger compliance log and maintain server user state
+      let nameToUse = fbUser.displayName || authName;
+      try {
+        await apiFetch("/api/auth/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: fbUser.email || authEmail,
+            password: authPassword,
+            name: nameToUse
+          })
+        });
+      } catch (err) {
+        console.error("Local backend registration error (falling back to memory):", err);
       }
-    } catch (err) {
-      console.error(err);
-      await mergeGuestData(authEmail);
+
+      await mergeGuestData(fbUser.email || authEmail);
       setIsLoggedIn(true);
-      setAuthEmail(authEmail);
-      setUserName(authName || authEmail.split("@")[0] || "User");
-      setAuthMessage({ type: "success", text: "Registration successful! (Offline Fallback active)" });
+      setAuthEmail(fbUser.email || authEmail);
+      setUserName(nameToUse);
+      setAuthMessage({ type: "success", text: `Registration successful! Account [${fbUser.email || authEmail}] secured with cryptographic tokens.` });
       setActiveTab("dashboard");
       await fetchData();
+    } catch (err: any) {
+      console.error("Firebase SignUp failed:", err);
+      let errMsg = "Registration failed.";
+      if (err?.message) {
+        if (err.message.includes("auth/email-already-in-use")) {
+          errMsg = "An account with this email already exists.";
+        } else if (err.message.includes("auth/weak-password")) {
+          errMsg = "Password is too weak. Must be at least 6 characters.";
+        } else if (err.message.includes("auth/invalid-email")) {
+          errMsg = "Invalid email address format.";
+        } else {
+          errMsg = err.message;
+        }
+      }
+      setAuthMessage({ type: "error", text: errMsg });
     }
   };
 
@@ -1744,35 +1755,42 @@ export default function App() {
     }
 
     try {
-      const res = await apiFetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: authEmail,
-          password: authPassword
-        })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        await mergeGuestData(data.email);
-        setIsLoggedIn(true);
-        setAuthEmail(data.email);
-        setUserName(data.name);
-        setAuthMessage({ type: "success", text: `Welcome back, ${data.name}! Session authorized.` });
-        setActiveTab("dashboard");
-        await fetchData();
-      } else {
-        setAuthMessage({ type: "error", text: data.error || "Login failed." });
+      // 1. Sign in via Firebase Auth SDK
+      const fbUser = await emailSignIn(authEmail, authPassword);
+
+      // 2. Notify local backend to create the audit log and sync user state
+      let nameToUse = fbUser.displayName || fbUser.email?.split("@")[0] || "User";
+      try {
+        await apiFetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: fbUser.email || authEmail,
+            password: authPassword
+          })
+        });
+      } catch (err) {
+        console.error("Local backend login sync error:", err);
       }
-    } catch (err) {
-      console.error(err);
-      await mergeGuestData(authEmail);
+
+      await mergeGuestData(fbUser.email || authEmail);
       setIsLoggedIn(true);
-      setAuthEmail(authEmail);
-      setUserName(authEmail.split("@")[0] || "User");
-      setAuthMessage({ type: "success", text: `Welcome back! authorized.` });
+      setAuthEmail(fbUser.email || authEmail);
+      setUserName(nameToUse);
+      setAuthMessage({ type: "success", text: `Welcome back, ${nameToUse}! Session authorized.` });
       setActiveTab("dashboard");
       await fetchData();
+    } catch (err: any) {
+      console.error("Firebase Login failed:", err);
+      let errMsg = "Login failed.";
+      if (err?.message) {
+        if (err.message.includes("auth/invalid-credential") || err.message.includes("auth/user-not-found") || err.message.includes("auth/wrong-password")) {
+          errMsg = "Invalid email or password. Please try again.";
+        } else {
+          errMsg = err.message;
+        }
+      }
+      setAuthMessage({ type: "error", text: errMsg });
     }
   };
 

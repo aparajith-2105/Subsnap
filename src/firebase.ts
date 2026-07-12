@@ -4,7 +4,10 @@ import {
   signInWithPopup, 
   GoogleAuthProvider, 
   onAuthStateChanged, 
-  User 
+  User,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile
 } from "firebase/auth";
 import firebaseConfig from "../firebase-applet-config.json";
 
@@ -29,16 +32,21 @@ export const initAuth = (
 ) => {
   return onAuthStateChanged(auth, async (user: User | null) => {
     if (user) {
-      if (!cachedAccessToken) {
-        try {
-          cachedAccessToken = localStorage.getItem("subsnap_google_access_token");
-        } catch (e) {}
-      }
-      if (cachedAccessToken) {
-        if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
-      } else if (!isSigningIn) {
-        cachedAccessToken = null;
-        if (onAuthFailure) onAuthFailure();
+      const isGoogleUser = user.providerData.some(p => p.providerId === "google.com");
+      if (isGoogleUser) {
+        if (!cachedAccessToken) {
+          try {
+            cachedAccessToken = localStorage.getItem("subsnap_google_access_token");
+          } catch (e) {}
+        }
+        if (cachedAccessToken) {
+          if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
+        } else {
+          if (onAuthSuccess) onAuthSuccess(user, "");
+        }
+      } else {
+        // Email/Password authenticated user
+        if (onAuthSuccess) onAuthSuccess(user, "");
       }
     } else {
       cachedAccessToken = null;
@@ -48,6 +56,17 @@ export const initAuth = (
       if (onAuthFailure) onAuthFailure();
     }
   });
+};
+
+export const emailSignUp = async (email: string, pass: string, name: string): Promise<User> => {
+  const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+  await updateProfile(userCredential.user, { displayName: name });
+  return userCredential.user;
+};
+
+export const emailSignIn = async (email: string, pass: string): Promise<User> => {
+  const userCredential = await signInWithEmailAndPassword(auth, email, pass);
+  return userCredential.user;
 };
 
 export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
