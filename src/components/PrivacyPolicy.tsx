@@ -1,185 +1,260 @@
 import React from "react";
-import { Shield, Eye, Lock, HardDrive, CircleDollarSign, Mail, FileText, CheckCircle } from "lucide-react";
+import { 
+  Shield, 
+  Eye, 
+  Lock, 
+  HardDrive, 
+  Mail, 
+  CheckCircle, 
+  KeyRound,
+  FileSpreadsheet,
+  Webhook,
+  Activity,
+  UserCheck
+} from "lucide-react";
 
 export default function PrivacyPolicy() {
   return (
-    <div className="flex-1 flex flex-col p-6 bg-[#F9FAFB] gap-6" id="privacy-policy-container">
+    <div className="flex-1 flex flex-col p-6 bg-[#0B0F19] text-[#F8FAFC] gap-6 rounded-xl border border-slate-800/80 shadow-2xl" id="privacy-policy-container">
       
-      {/* HEADER SECTION */}
-      <div className="bg-white p-6 rounded-lg border border-[#475569]/20 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4" id="privacy-header">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="p-1.5 bg-slate-900 text-white rounded-lg">
-              <Shield className="w-5 h-5" />
+      {/* HEADER HERO SECTION */}
+      <div className="relative bg-gradient-to-r from-[#0F172A] to-[#1E293B] p-8 rounded-xl border border-[#14B8A6]/20 overflow-hidden shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-6" id="privacy-header">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-[#14B8A6]/5 rounded-full blur-3xl -z-10"></div>
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <span className="p-2 bg-[#14B8A6]/10 text-[#14B8A6] rounded-lg border border-[#14B8A6]/20">
+              <Shield className="w-6 h-6 animate-pulse" />
             </span>
-            <h1 className="text-xl font-black text-[#0F172A] uppercase tracking-tight font-sans">
+            <h1 className="text-2xl font-black text-white uppercase tracking-tight font-sans">
               SubSnap Privacy Policy
             </h1>
           </div>
-          <p className="text-xs text-[#475569] font-mono uppercase tracking-widest mt-1">
-            Privacy Ledger • Last updated: July 2, 2026
+          <p className="text-xs text-slate-400 font-mono uppercase tracking-widest">
+            Privacy Control Ledger • Last updated: July 12, 2026
           </p>
         </div>
-        <div className="flex items-center gap-2 bg-slate-50 border border-[#475569]/15 px-3 py-1.5 rounded-lg text-[10px] font-bold text-[#0F172A] font-mono uppercase">
-          <CheckCircle className="w-4 h-4 text-[#10B981]" />
-          Zero-Server Database Architecture Verified
+        <div className="flex items-center gap-2.5 bg-slate-900/80 border border-[#14B8A6]/35 px-4 py-2 rounded-lg text-xs font-bold text-[#14B8A6] font-mono uppercase shadow-inner">
+          <CheckCircle className="w-4.5 h-4.5 text-[#14B8A6]" />
+          Zero-Server Financial Storage Architecture Verified
+        </div>
+      </div>
+
+      {/* COMPLIANCE DISCLOSURE NOTICE */}
+      <div className="bg-[#0F172A] border border-slate-800/80 p-4 rounded-lg flex items-start gap-3">
+        <UserCheck className="w-5 h-5 text-[#14B8A6] shrink-0 mt-0.5" />
+        <div className="space-y-1">
+          <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono">FTC Compliance Disclosure Statement</h4>
+          <p className="text-[11px] text-slate-400 leading-relaxed">
+            In compliance with FTC guidance for negative-option subscription models and consumer protection standards, SubSnap is engineered as a secure, decentralized utility. No personal login is required to inspect this document, and all statement analysis remains fully client-side.
+          </p>
         </div>
       </div>
 
       {/* CORE CLAUSES GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" id="privacy-core-clauses">
         
-        {/* CLAUSE 1: DATA COLLECTION */}
-        <div className="bg-white p-6 rounded-lg border border-[#475569]/20 shadow-sm space-y-4 flex flex-col justify-between" id="clause-data-collection">
-          <div className="space-y-3">
-            <div className="flex items-center gap-2.5 border-b border-[#475569]/10 pb-3">
-              <span className="text-[#0F172A] font-mono text-sm font-black bg-slate-100 w-7 h-7 rounded-full flex items-center justify-center border border-[#475569]/20">
+        {/* SECTION 1: WHAT DATA WE COLLECT */}
+        <div className="bg-[#111827] p-6 rounded-xl border border-slate-800 flex flex-col justify-between hover:border-[#14B8A6]/30 transition-all duration-300 shadow-md group" id="clause-data-collection">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2.5 border-b border-slate-800 pb-3">
+              <span className="text-[#14B8A6] font-mono text-sm font-black bg-[#14B8A6]/10 w-8 h-8 rounded-full flex items-center justify-center border border-[#14B8A6]/20">
                 01
               </span>
-              <h2 className="text-sm font-black text-[#0F172A] uppercase tracking-wider font-sans flex items-center gap-2">
-                <HardDrive className="w-4 h-4" /> What Data We Collect
+              <h2 className="text-sm font-black text-white uppercase tracking-wider font-sans flex items-center gap-2">
+                <HardDrive className="w-4 h-4 text-[#14B8A6]" /> What Data We Collect
               </h2>
             </div>
-            <p className="text-xs text-[#475569] leading-relaxed">
-              SubSnap only processes the minimum operational data required to analyze and track your recurring subscriptions:
+            <p className="text-xs text-slate-400 leading-relaxed">
+              SubSnap adheres to data-minimization design principles. We process only the minimum operational parameters required to analyze recurring billing streams:
             </p>
-            <ul className="space-y-2 text-xs text-[#0F172A]">
-              <li className="flex items-start gap-2 bg-slate-50 p-2.5 rounded border border-[#475569]/10">
-                <span className="text-[#10B981] font-mono font-bold">✓</span>
-                <span><strong>Uploaded Bank Statements:</strong> Raw CSV or TXT format bank statements that you choose to upload to inspect repetitive financial transaction streams.</span>
+            <ul className="space-y-2.5 text-xs text-slate-300">
+              <li className="flex items-start gap-3 bg-[#0F172A] p-3 rounded border border-slate-800">
+                <FileSpreadsheet className="w-4.5 h-4.5 text-[#14B8A6] shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-white block mb-0.5">Uploaded Bank Statements:</strong>
+                  <span className="text-slate-400 text-[11px]">CSV or text-based financial files uploaded by the user are parsed and processed locally in-browser. They are <strong>never</strong> transmitted to or stored on our servers.</span>
+                </div>
               </li>
-              <li className="flex items-start gap-2 bg-slate-50 p-2.5 rounded border border-[#475569]/10">
-                <span className="text-[#10B981] font-mono font-bold">✓</span>
-                <span><strong>Manually Entered Subscription Data:</strong> Cost parameters, merchant titles, billing intervals, categories, and payment dates that you type in.</span>
+              <li className="flex items-start gap-3 bg-[#0F172A] p-3 rounded border border-slate-800">
+                <Shield className="w-4.5 h-4.5 text-[#14B8A6] shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-white block mb-0.5">Manually Entered Subscription Data:</strong>
+                  <span className="text-slate-400 text-[11px]">Cost figures, billing frequencies, merchant titles, and renewal date overrides input directly by the user into the local database.</span>
+                </div>
+              </li>
+              <li className="flex items-start gap-3 bg-[#0F172A] p-3 rounded border border-slate-800">
+                <Webhook className="w-4.5 h-4.5 text-[#14B8A6] shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-white block mb-0.5">Cancellation Webhook Logs:</strong>
+                  <span className="text-slate-400 text-[11px]">Consent revocation events and subscription cancel requests transmitted securely to the configured external webhook (e.g. n8n workflow pipeline) for user automation.</span>
+                </div>
               </li>
             </ul>
           </div>
-          <div className="text-[10px] font-mono text-[#475569] bg-slate-50 p-2 rounded border border-[#475569]/5 mt-4">
-            REGULATORY ALIGNMENT: FTC SEC. 5 (UNFAIR/DECEPTIVE ACTS SAFEGUARD)
+          <div className="text-[10px] font-mono text-slate-500 bg-slate-950/40 p-2.5 rounded border border-slate-800/50 mt-4 uppercase tracking-widest">
+            REGULATORY MARK: SECURE COLLECTION AUDIT PATH
           </div>
         </div>
 
-        {/* CLAUSE 2: DATA USAGE */}
-        <div className="bg-white p-6 rounded-lg border border-[#475569]/20 shadow-sm space-y-4 flex flex-col justify-between" id="clause-data-usage">
-          <div className="space-y-3">
-            <div className="flex items-center gap-2.5 border-b border-[#475569]/10 pb-3">
-              <span className="text-[#0F172A] font-mono text-sm font-black bg-slate-100 w-7 h-7 rounded-full flex items-center justify-center border border-[#475569]/20">
+        {/* SECTION 2: HOW DATA IS USED */}
+        <div className="bg-[#111827] p-6 rounded-xl border border-slate-800 flex flex-col justify-between hover:border-[#14B8A6]/30 transition-all duration-300 shadow-md group" id="clause-data-usage">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2.5 border-b border-slate-800 pb-3">
+              <span className="text-[#14B8A6] font-mono text-sm font-black bg-[#14B8A6]/10 w-8 h-8 rounded-full flex items-center justify-center border border-[#14B8A6]/20">
                 02
               </span>
-              <h2 className="text-sm font-black text-[#0F172A] uppercase tracking-wider font-sans flex items-center gap-2">
-                <Eye className="w-4 h-4" /> How It Is Used
+              <h2 className="text-sm font-black text-white uppercase tracking-wider font-sans flex items-center gap-2">
+                <Eye className="w-4 h-4 text-[#14B8A6]" /> How Data Is Used
               </h2>
             </div>
-            <p className="text-xs text-[#475569] leading-relaxed">
-              Your private ledger information is used strictly and exclusively within your current active session:
+            <p className="text-xs text-slate-400 leading-relaxed">
+              The processing of your recurring ledger data is restricted strictly to customer-initiated optimization actions:
             </p>
-            <ul className="space-y-2 text-xs text-[#0F172A]">
-              <li className="flex items-start gap-2 bg-slate-50 p-2.5 rounded border border-[#475569]/10">
-                <span className="text-[#10B981] font-mono font-bold">✓</span>
-                <span><strong>Calculators and Estimations:</strong> To compute systemic financial subscription leakage, forgotten waste sums, and inertia latency over periods of time.</span>
+            <ul className="space-y-2.5 text-xs text-slate-300">
+              <li className="flex items-start gap-3 bg-[#0F172A] p-3 rounded border border-slate-800">
+                <Activity className="w-4.5 h-4.5 text-[#14B8A6] shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-white block mb-0.5">Leakage Metric Computation:</strong>
+                  <span className="text-slate-400 text-[11px]">Calculating active subscription leakage, dormant software cost spikes, and cumulative monthly waste totals strictly inside the localized client dashboard.</span>
+                </div>
               </li>
-              <li className="flex items-start gap-2 bg-slate-50 p-2.5 rounded border border-[#475569]/10">
-                <span className="text-[#10B981] font-mono font-bold">✓</span>
-                <span><strong>Zero-Server Storage:</strong> Your transactional parameters are never stored on external databases or sent to our physical/cloud computing servers.</span>
+              <li className="flex items-start gap-3 bg-[#0F172A] p-3 rounded border border-slate-800">
+                <CheckCircle className="w-4.5 h-4.5 text-[#14B8A6] shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-white block mb-0.5">FTC Compliance Audit Trails:</strong>
+                  <span className="text-slate-400 text-[11px]">Generating structured consent-history records and unilateral cancel requests to establish a formal compliance paper trail verifying the legal request to stop billing.</span>
+                </div>
               </li>
-              <li className="flex items-start gap-2 bg-slate-50 p-2.5 rounded border border-[#475569]/10">
-                <span className="text-[#10B981] font-mono font-bold">✓</span>
-                <span><strong>Zero Sharing Policy:</strong> SubSnap operates with high structural friction, keeping logs fully independent of any marketing syndicates or third parties.</span>
+              <li className="flex items-start gap-3 bg-[#0F172A] p-3 rounded border border-slate-800">
+                <Lock className="w-4.5 h-4.5 text-[#14B8A6] shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-white block mb-0.5">Strict Privacy & No Third-Party Sales:</strong>
+                  <span className="text-slate-400 text-[11px]">We never sell, rent, license, trade, or distribute your subscription habits or financial data to data-brokers, publishers, or ad networks. Data stays exclusively yours.</span>
+                </div>
               </li>
             </ul>
           </div>
-          <div className="text-[10px] font-mono text-[#475569] bg-slate-50 p-2 rounded border border-[#475569]/5 mt-4">
-            COMPLIANCE CRITERION: FTC NEGATIVE-OPTION TRANSPARENCY STANDARDS
+          <div className="text-[10px] font-mono text-slate-500 bg-slate-950/40 p-2.5 rounded border border-slate-800/50 mt-4 uppercase tracking-widest">
+            OPERATIONAL BOUNDARY: ZERO MARKETING SYNDICATION
           </div>
         </div>
 
-        {/* CLAUSE 3: DATA STAYS LOCAL */}
-        <div className="bg-white p-6 rounded-lg border border-[#475569]/20 shadow-sm space-y-4 flex flex-col justify-between" id="clause-local-processing">
-          <div className="space-y-3">
-            <div className="flex items-center gap-2.5 border-b border-[#475569]/10 pb-3">
-              <span className="text-[#0F172A] font-mono text-sm font-black bg-slate-100 w-7 h-7 rounded-full flex items-center justify-center border border-[#475569]/20">
+        {/* SECTION 3: GMAIL ACCESS PROTOCOL */}
+        <div className="bg-[#111827] p-6 rounded-xl border border-slate-800 flex flex-col justify-between hover:border-[#14B8A6]/30 transition-all duration-300 shadow-md group" id="clause-gmail-access">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2.5 border-b border-slate-800 pb-3">
+              <span className="text-[#14B8A6] font-mono text-sm font-black bg-[#14B8A6]/10 w-8 h-8 rounded-full flex items-center justify-center border border-[#14B8A6]/20">
                 03
               </span>
-              <h2 className="text-sm font-black text-[#0F172A] uppercase tracking-wider font-sans flex items-center gap-2">
-                <Lock className="w-4 h-4" /> Data Stays Local
+              <h2 className="text-sm font-black text-white uppercase tracking-wider font-sans flex items-center gap-2">
+                <KeyRound className="w-4 h-4 text-[#14B8A6]" /> Google OAuth & Gmail Access
               </h2>
             </div>
-            <p className="text-xs text-[#475569] leading-relaxed">
-              We leverage browser-sandboxed sandbox protocols to secure total containment:
+            <p className="text-xs text-slate-400 leading-relaxed">
+              When you opt-in to link Google Workspace to SubSnap, we handle your API communication using secure, restricted credentials:
             </p>
-            <div className="bg-slate-950 text-emerald-400 font-mono text-[11px] p-4 rounded-lg border-2 border-slate-900 space-y-2">
-              <div className="flex justify-between border-b border-slate-800 pb-1.5 text-[9px] uppercase tracking-wider text-slate-400">
-                <span>Secure Terminal</span>
-                <span>Local Sandbox Mode</span>
-              </div>
-              <p className="text-white leading-relaxed">
-                All data parsing, including uploaded statement reading and OCR receipt extraction, takes place client-side in your local browser thread. Closing your browser tab automatically wipes any transient file caches.
-              </p>
-              <div className="text-[10px] text-emerald-500 font-black">
-                STATUS: [LOCAL_PROCESSING_ONLY]
-              </div>
-            </div>
+            <ul className="space-y-2.5 text-xs text-slate-300">
+              <li className="flex items-start gap-3 bg-[#0F172A] p-3 rounded border border-slate-800">
+                <Lock className="w-4.5 h-4.5 text-[#14B8A6] shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-white block mb-0.5">Send-Only Permissions:</strong>
+                  <span className="text-slate-400 text-[11px]">SubSnap requests the restricted <code>gmail.send</code> scope exclusively. This authorization allows the system only to programmatically dispatch emails.</span>
+                </div>
+              </li>
+              <li className="flex items-start gap-3 bg-[#0F172A] p-3 rounded border border-slate-800">
+                <Mail className="w-4.5 h-4.5 text-[#14B8A6] shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-white block mb-0.5">Exclusively Self-Alerting Notifications:</strong>
+                  <span className="text-slate-400 text-[11px]">The Gmail API access token is used exclusively to dispatch renewal hazard digests, cost spike warning alerts, and upcoming debit alerts <strong>to your own registered inbox</strong>.</span>
+                </div>
+              </li>
+              <li className="flex items-start gap-3 bg-[#0F172A] p-3 rounded border border-slate-800">
+                <Shield className="w-4.5 h-4.5 text-[#14B8A6] shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-white block mb-0.5">Zero Reading, Storage, or Sharing:</strong>
+                  <span className="text-slate-400 text-[11px]">SubSnap has <strong>no permissions to read</strong>, fetch, compile, scan, index, analyze, store, or share your incoming or outgoing mailbox emails. Your inbox contents remain completely private.</span>
+                </div>
+              </li>
+            </ul>
           </div>
-          <div className="text-[10px] font-mono text-[#475569] bg-slate-50 p-2 rounded border border-[#475569]/5 mt-4">
-            INFRASTRUCTURE MODE: CLIENT-SIDE CRYPTOGRAPHIC TRUST FRAMEWORK
+          <div className="text-[10px] font-mono text-slate-500 bg-slate-950/40 p-2.5 rounded border border-slate-800/50 mt-4 uppercase tracking-widest">
+            SCOPE CLEARANCE: GMAIL.SEND RESTRICTED PROTOCOL
           </div>
         </div>
 
-        {/* CLAUSE 4: NO DATA SOLD */}
-        <div className="bg-white p-6 rounded-lg border border-[#475569]/20 shadow-sm space-y-4 flex flex-col justify-between" id="clause-no-sale">
-          <div className="space-y-3">
-            <div className="flex items-center gap-2.5 border-b border-[#475569]/10 pb-3">
-              <span className="text-[#0F172A] font-mono text-sm font-black bg-slate-100 w-7 h-7 rounded-full flex items-center justify-center border border-[#475569]/20">
+        {/* SECTION 4: DATA STAYS LOCAL */}
+        <div className="bg-[#111827] p-6 rounded-xl border border-slate-800 flex flex-col justify-between hover:border-[#14B8A6]/30 transition-all duration-300 shadow-md group" id="clause-local-only">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2.5 border-b border-slate-800 pb-3">
+              <span className="text-[#14B8A6] font-mono text-sm font-black bg-[#14B8A6]/10 w-8 h-8 rounded-full flex items-center justify-center border border-[#14B8A6]/20">
                 04
               </span>
-              <h2 className="text-sm font-black text-[#0F172A] uppercase tracking-wider font-sans flex items-center gap-2">
-                <CircleDollarSign className="w-4 h-4" /> No Account Data Sold
+              <h2 className="text-sm font-black text-white uppercase tracking-wider font-sans flex items-center gap-2">
+                <Lock className="w-4 h-4 text-[#14B8A6]" /> Local Storage Guarantee
               </h2>
             </div>
-            <p className="text-xs text-[#475569] leading-relaxed">
-              Your financial habits belong to you alone. We firmly reject surveillance monetization:
+            <p className="text-xs text-slate-400 leading-relaxed">
+              We leverage modern browser isolation mechanics to shield sensitive financial details from external network exposure:
             </p>
-            <div className="p-4 bg-slate-50 border border-slate-300 rounded-lg text-xs space-y-2 text-[#0F172A]">
-              <p className="font-bold">
-                SubSnap does not, and will never, sell or monetize user financial data.
-              </p>
-              <p className="text-slate-600 leading-relaxed text-[11px]">
-                There are no tracking SDKs, no targeted advertising pixels, and no automated telemetry feeds. The software operates purely as a pro-consumer tool aimed at mitigating corporate subscription traps.
-              </p>
+            
+            <div className="bg-slate-950 text-teal-400 font-mono text-[11px] p-4 rounded-lg border border-[#14B8A6]/30 space-y-2 shadow-inner">
+              <div className="flex justify-between border-b border-slate-800 pb-1.5 text-[9px] uppercase tracking-wider text-slate-500">
+                <span>Cryptographic Trust</span>
+                <span>Client Sandbox Thread</span>
+              </div>
+              <ul className="space-y-1.5 text-slate-300">
+                <li className="flex items-center gap-2">
+                  <span className="text-[#14B8A6]">●</span>
+                  <span><strong>Client-Side Engine:</strong> Raw statement parsing and receipts rendering occur entirely inside your browser's VM thread.</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-[#14B8A6]">●</span>
+                  <span><strong>No Raw Credentials Stored:</strong> Absolute suppression of any raw banking login, token keys, or password credentials.</span>
+                </li>
+                <li className="flex items-center gap-2 text-teal-400 font-bold">
+                  <span className="animate-ping">●</span>
+                  <span>ACTIVE SECURITY STATUS: LOCALIZED</span>
+                </li>
+              </ul>
             </div>
           </div>
-          <div className="text-[10px] font-mono text-[#475569] bg-slate-50 p-2 rounded border border-[#475569]/5 mt-4">
-            PRINCIPLE ETHICS: SOVEREIGN USER FINANCIAL SELF-DETERMINATION
+          <div className="text-[10px] font-mono text-slate-500 bg-slate-950/40 p-2.5 rounded border border-slate-800/50 mt-4 uppercase tracking-widest">
+            SANDBOX PROTECTION: TOTAL BROWSER ENCLAVE ISOLATION
           </div>
         </div>
 
       </div>
 
-      {/* CONTACT SECTION */}
-      <div className="bg-white p-6 rounded-lg border border-[#475569]/20 shadow-sm space-y-4" id="clause-contact">
-        <div className="flex items-center gap-2.5 border-b border-[#475569]/10 pb-3">
-          <span className="p-1.5 bg-slate-900 text-white rounded-lg">
+      {/* SECTION 5: CONTACT INFORMATION */}
+      <div className="bg-[#111827] p-6 rounded-xl border border-slate-800 space-y-4 hover:border-[#14B8A6]/30 transition-all duration-300" id="clause-contact">
+        <div className="flex items-center gap-2.5 border-b border-slate-800 pb-3">
+          <span className="p-2 bg-[#14B8A6]/10 text-[#14B8A6] rounded-lg border border-[#14B8A6]/20">
             <Mail className="w-4 h-4" />
           </span>
-          <h2 className="text-sm font-black text-[#0F172A] uppercase tracking-wider font-sans">
-            05 • Contact Information
+          <h2 className="text-sm font-black text-white uppercase tracking-wider font-sans">
+            05 • Inquiries and Contact Information
           </h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
-          <div className="space-y-1">
-            <span className="block text-[10px] font-mono text-[#475569] uppercase font-bold">Privacy Officer</span>
-            <strong className="text-[#0F172A] block font-sans">Aparajith</strong>
-            <span className="text-[#475569] font-mono">Lead Compliance Engineer</span>
+        
+        <p className="text-xs text-slate-400 leading-relaxed max-w-2xl">
+          If you have any questions, regulatory compliance suggestions, or concerns regarding your local session ledger data, please submit your inquiry to our secure compliance mailbox. We are committed to transparency and consumer advocacy.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs pt-2">
+          <div className="space-y-1 bg-[#0F172A] p-3.5 rounded border border-slate-800">
+            <span className="block text-[10px] font-mono text-slate-500 uppercase font-bold">Privacy Officer Desk</span>
+            <strong className="text-white block font-sans">Aparajith</strong>
+            <span className="text-[#14B8A6] font-mono text-[10px]">Lead Compliance and Integrity Engineer</span>
           </div>
-          <div className="space-y-1">
-            <span className="block text-[10px] font-mono text-[#475569] uppercase font-bold">Secure Gateway Mailbox</span>
-            <strong className="text-[#0F172A] block font-mono">aparajith032@gmail.com</strong>
-            <span className="text-[#475569] font-mono">General Compliance Line</span>
+          <div className="space-y-1 bg-[#0F172A] p-3.5 rounded border border-slate-800">
+            <span className="block text-[10px] font-mono text-slate-500 uppercase font-bold">Secure Gateway Mailbox</span>
+            <strong className="text-white block font-mono text-[13px] text-teal-400">aparajith032@gmail.com</strong>
+            <span className="text-slate-500 font-mono text-[10px]">Primary Inbound Line</span>
           </div>
-          <div className="space-y-1">
-            <span className="block text-[10px] font-mono text-[#475569] uppercase font-bold">Legal Domain</span>
-            <strong className="text-[#0F172A] block font-sans">SubSnap Systems Legal Desk</strong>
-            <span className="text-[#475569] font-mono">FTC Compliance and Enforcement Office</span>
+          <div className="space-y-1 bg-[#0F172A] p-3.5 rounded border border-[#14B8A6]/10">
+            <span className="block text-[10px] font-mono text-slate-500 uppercase font-bold">Legal Domain Authority</span>
+            <strong className="text-white block font-sans">SubSnap Systems Legal Desk</strong>
+            <span className="text-slate-500 font-mono text-[10px]">FTC compliance enforcement coordination</span>
           </div>
         </div>
       </div>

@@ -319,14 +319,23 @@ export default function App() {
   }, []);
 
   // New features states
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("subsnap_dark_mode");
+      // Check for user preference, or check if body has dark class originally
+      return saved === "true" || (saved === null && document.documentElement.classList.contains("dark"));
+    }
+    return false;
+  });
   const [bulkSelectedIds, setBulkSelectedIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add("dark");
+      localStorage.setItem("subsnap_dark_mode", "true");
     } else {
       document.documentElement.classList.remove("dark");
+      localStorage.setItem("subsnap_dark_mode", "false");
     }
   }, [isDarkMode]);
 
@@ -854,7 +863,12 @@ export default function App() {
     "darkPatterns" | "complianceAudit" | "regulatoryTracker" | 
     "costCalculator" | "flowComparison" | "inertiaProfiler" | 
     "consentLog" | "researchData" | "privacyPolicy"
-  >("dashboard");
+  >(() => {
+    if (typeof window !== "undefined" && window.location.pathname === "/privacy") {
+      return "privacyPolicy";
+    }
+    return "dashboard";
+  });
   const [bankLocation, setBankLocation] = useState<"US" | "UK" | "EU" | "IN" | "CN" | "CA" | "AU" | "SG" | "JP">("US");
   const [currency, setCurrency] = useState<"USD" | "GBP" | "EUR" | "INR" | "CNY" | "CAD" | "AUD" | "SGD" | "JPY">("USD");
   const [onboardingOption, setOnboardingOption] = useState<"none" | "plaid" | "csv" | "manual" | "receipt">("none");
@@ -939,7 +953,31 @@ export default function App() {
     setActiveTab(tab);
     setShowNotificationCenter(false);
     setMobileShowContent(true);
+    if (typeof window !== "undefined") {
+      if (tab === "privacyPolicy") {
+        if (window.location.pathname !== "/privacy") {
+          window.history.pushState(null, "", "/privacy");
+        }
+      } else {
+        if (window.location.pathname === "/privacy") {
+          window.history.pushState(null, "", "/");
+        }
+      }
+    }
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handlePopState = () => {
+      if (window.location.pathname === "/privacy") {
+        setActiveTab("privacyPolicy");
+      } else {
+        setActiveTab("dashboard");
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   const handleLogOut = () => {
     setIsLoggedIn(false);
