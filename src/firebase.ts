@@ -7,7 +7,8 @@ import {
   User,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  updateProfile
+  updateProfile,
+  sendPasswordResetEmail
 } from "firebase/auth";
 import firebaseConfig from "../firebase-applet-config.json";
 
@@ -118,4 +119,8 @@ export const logout = async () => {
   try {
     localStorage.removeItem("subsnap_google_access_token");
   } catch (e) {}
+};
+
+export const sendPasswordReset = async (email: string): Promise<void> => {
+  await sendPasswordResetEmail(auth, email);
 };

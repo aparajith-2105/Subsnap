@@ -63,7 +63,7 @@ import { Subscription, AuditLog, PlaidConfig, SystemNotification } from "./types
 import MerchantLogo from "./components/MerchantLogo";
 import { SUPPORTED_CURRENCIES, getCurrencySymbol, formatCurrency, convertCurrency, formatNotificationMessage } from "./currencyUtils";
 import { useWebSocket } from "./useWebSocket";
-import { googleSignIn, logout as googleLogout, initAuth, getAccessToken, getFirebaseIdToken, emailSignUp, emailSignIn } from "./firebase";
+import { googleSignIn, logout as googleLogout, initAuth, getAccessToken, getFirebaseIdToken, emailSignUp, emailSignIn, sendPasswordReset } from "./firebase";
 
 const PIE_COLORS = ["#0F172A", "#6366F1", "#10B981", "#EF4444", "#F59E0B", "#06B6D4", "#F43F5E"];
 
@@ -1080,28 +1080,28 @@ export default function App() {
   const handlePasswordResetOutOfSession = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthMessage(null);
-    if (!authEmail || !authPassword) {
-      setAuthMessage({ type: "error", text: "Please enter both Email ID and New Password." });
+    if (!authEmail) {
+      setAuthMessage({ type: "error", text: "Please enter your Email ID." });
       return;
     }
     try {
-      const response = await apiFetch("/api/auth/reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: authEmail, newPassword: authPassword }),
+      await sendPasswordReset(authEmail);
+      setAuthMessage({ 
+        type: "success", 
+        text: "Password reset email sent. Check your inbox." 
       });
-      const data = await response.json();
-      if (response.ok) {
-        setAuthMessage({ type: "success", text: "Password reset successfully! You can now log in." });
-        setAuthState("login");
-        setAuthPassword("");
+      // Optionally reset state to login or keep as is to let user see success message
+    } catch (err: any) {
+      console.error("Firebase Password Reset Error:", err);
+      let errMsg = "An error occurred while sending password reset email.";
+      if (err?.code === "auth/user-not-found" || err?.message?.includes("user-not-found")) {
+        errMsg = "No account found with this email address.";
+      } else if (err?.code === "auth/invalid-email" || err?.message?.includes("invalid-email")) {
+        errMsg = "Invalid email address format.";
       } else {
-        setAuthMessage({ type: "error", text: data.error || "Failed to reset password." });
+        errMsg = err?.message || errMsg;
       }
-    } catch (err) {
-      console.error(err);
-      setAuthMessage({ type: "success", text: "Password reset successfully! (Offline Fallback active)" });
-      setAuthState("login");
+      setAuthMessage({ type: "error", text: errMsg });
     }
   };
 
@@ -4957,19 +4957,21 @@ export default function App() {
                             />
                           </div>
 
-                          <div className="space-y-1">
-                            <label className="block text-slate-400 text-[10px] uppercase font-bold tracking-wider">
-                              {authState === "reset" ? "New Password" : "Password"}
-                            </label>
-                            <input
-                              type="password"
-                              required
-                              placeholder="••••••••••••"
-                              value={authPassword}
-                              onChange={(e) => setAuthPassword(e.target.value)}
-                              className="w-full bg-slate-900 border border-slate-700 focus:border-emerald-400 p-2.5 rounded text-white text-xs font-mono outline-none"
-                            />
-                          </div>
+                          {authState !== "reset" && (
+                            <div className="space-y-1">
+                              <label className="block text-slate-400 text-[10px] uppercase font-bold tracking-wider">
+                                Password
+                              </label>
+                              <input
+                                type="password"
+                                required
+                                placeholder="••••••••••••"
+                                value={authPassword}
+                                onChange={(e) => setAuthPassword(e.target.value)}
+                                className="w-full bg-slate-900 border border-slate-700 focus:border-emerald-400 p-2.5 rounded text-white text-xs font-mono outline-none"
+                              />
+                            </div>
+                          )}
 
                           {authState === "signup" && (
                             <label className="flex items-start gap-2.5 text-slate-300 text-[11px] cursor-pointer select-none">
@@ -4987,7 +4989,7 @@ export default function App() {
                             type="submit"
                             className="w-full py-3 bg-[#10B981] hover:bg-emerald-600 text-slate-950 font-black text-xs uppercase tracking-widest rounded transition-colors shadow-sm cursor-pointer mt-2"
                           >
-                            {authState === "signup" ? "Create Secure Account" : (authState === "reset" ? "Reset Security Password" : "Access Console")}
+                            {authState === "signup" ? "Create Secure Account" : (authState === "reset" ? "Send Password Reset Email" : "Access Console")}
                           </button>
 
                           <div className="flex items-center my-3.5">
