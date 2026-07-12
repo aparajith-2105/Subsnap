@@ -63,7 +63,7 @@ import { Subscription, AuditLog, PlaidConfig, SystemNotification } from "./types
 import MerchantLogo from "./components/MerchantLogo";
 import { SUPPORTED_CURRENCIES, getCurrencySymbol, formatCurrency, convertCurrency, formatNotificationMessage } from "./currencyUtils";
 import { useWebSocket } from "./useWebSocket";
-import { googleSignIn, logout as googleLogout, initAuth, getAccessToken, getFirebaseIdToken, emailSignUp, emailSignIn, sendPasswordReset } from "./firebase";
+import { googleSignIn, logout as googleLogout, initAuth, getAccessToken, getFirebaseIdToken, emailSignUp, emailSignIn, sendPasswordReset, changeUserPassword } from "./firebase";
 
 const PIE_COLORS = ["#0F172A", "#6366F1", "#10B981", "#EF4444", "#F59E0B", "#06B6D4", "#F43F5E"];
 
@@ -1055,25 +1055,33 @@ export default function App() {
       return;
     }
     try {
-      const response = await apiFetch("/api/auth/reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: authEmail, newPassword: newPasswordInput }),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setResetSuccessMessage("Password successfully reset!");
-        setNewPasswordInput("");
-        setAuthPassword(newPasswordInput);
-        await fetchData();
-      } else {
-        setResetErrorMessage(data.error || "Failed to reset password.");
+      // 1. Update password in Firebase Auth using SDK
+      await changeUserPassword(newPasswordInput);
+
+      // 2. Try syncing to the local backend if possible
+      try {
+        await apiFetch("/api/auth/reset-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: authEmail, newPassword: newPasswordInput }),
+        });
+      } catch (backendErr) {
+        console.error("Local backend password reset sync error:", backendErr);
       }
-    } catch (err) {
-      console.error(err);
-      setResetSuccessMessage("Password updated successfully! (Offline Fallback active)");
+
+      setResetSuccessMessage("Password successfully reset!");
       setNewPasswordInput("");
       setAuthPassword(newPasswordInput);
+      await fetchData();
+    } catch (err: any) {
+      console.error("Firebase updatePassword error:", err);
+      let errMsg = "Failed to reset password.";
+      if (err?.code === "auth/requires-recent-login") {
+        errMsg = "This operation is sensitive and requires recent authentication. Please log in again.";
+      } else if (err?.message) {
+        errMsg = err.message;
+      }
+      setResetErrorMessage(errMsg);
     }
   };
 

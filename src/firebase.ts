@@ -8,7 +8,8 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   updateProfile,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  updatePassword
 } from "firebase/auth";
 import firebaseConfig from "../firebase-applet-config.json";
 
@@ -123,4 +124,12 @@ export const logout = async () => {
 
 export const sendPasswordReset = async (email: string): Promise<void> => {
   await sendPasswordResetEmail(auth, email);
+};
+
+export const changeUserPassword = async (newPassword: string): Promise<void> => {
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error("No user is currently signed in.");
+  }
+  await updatePassword(user, newPassword);
 };
